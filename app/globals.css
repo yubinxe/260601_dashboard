@@ -1045,22 +1045,34 @@ button { font-family: inherit; cursor: pointer; }
 }
 .hotmap-card { overflow: hidden; }
 .hotmap-skeleton { padding: 8px 0; }
-.korea-map-wrap { position: relative; }
+.korea-map-wrap { position: relative; width: 100%; }
 .korea-map-svg {
   width: 100%;
   height: auto;
-  max-height: 520px;
+  min-height: 360px;
+  max-height: min(72vh, 640px);
   display: block;
   touch-action: manipulation;
 }
-.korea-outline { transition: fill 0.4s var(--ease); }
-.korea-heat-blob {
-  transition: opacity 0.35s var(--ease), transform 0.35s var(--ease);
-  opacity: 0.85;
+.korea-map-bg {
+  fill: var(--surface-2);
 }
-.korea-heat-blob--active {
-  opacity: 1;
-  transform: scale(1.08);
+.korea-province {
+  transition: fill 0.35s var(--ease), stroke 0.25s var(--ease), stroke-width 0.25s var(--ease);
+  vector-effect: non-scaling-stroke;
+}
+.korea-province:hover {
+  filter: brightness(0.97);
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+.korea-province--active {
+  stroke: var(--ink) !important;
+  stroke-width: 2 !important;
+  filter: brightness(0.95);
+}
+.korea-province--hot {
+  stroke: color-mix(in oklch, var(--hot) 40%, var(--line));
 }
 .korea-region-dot {
   fill: var(--ink);
@@ -1095,15 +1107,16 @@ button { font-family: inherit; cursor: pointer; }
   transform-box: fill-box;
 }
 @keyframes hotMarkerPulse {
-  0%, 100% { opacity: 0.7; r: 8; }
-  50% { opacity: 0.15; r: 18; }
+  0%, 100% { opacity: 0.65; transform: scale(1); }
+  50% { opacity: 0.12; transform: scale(2.2); }
 }
 .hot-marker-glow {
   animation: hotGlow 2.4s ease-in-out infinite;
+  opacity: 0.2;
 }
 @keyframes hotGlow {
-  0%, 100% { opacity: 0.15; }
-  50% { opacity: 0.35; }
+  0%, 100% { opacity: 0.12; }
+  50% { opacity: 0.32; }
 }
 .korea-map-legend {
   margin-top: 16px;

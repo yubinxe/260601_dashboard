@@ -100,7 +100,7 @@ export default function HotMapTab() {
 
         {loading ? (
           <div className="hotmap-skeleton">
-            <div style={{ height: 420, borderRadius: 'var(--r-md)', background: 'var(--track)' }} />
+            <div style={{ height: 400, minHeight: 360, borderRadius: 'var(--r-md)', background: 'var(--track)' }} />
           </div>
         ) : data ? (
           <>
