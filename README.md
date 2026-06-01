@@ -1,36 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 청약 인사이트 대시보드
 
-## Getting Started
+청약홈 OpenAPI 기반 분양정보·경쟁률·당첨자 통계·AI 당첨 예측·핫플레이스 지도 대시보드입니다.
 
-First, run the development server:
+## 로컬 실행
 
 ```bash
+npm install
+cp .env.example .env.local
+# .env.local 에 공공데이터포털 API 키 입력
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Vercel 배포
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. [Vercel](https://vercel.com)에서 GitHub 저장소 `yubinxe/260601_dashboard` 연결
+2. **Root Directory**: 저장소 루트 (`cheongak-dashboard`가 루트인 경우 그대로)
+3. **Environment Variables** (Production · Preview · Development 모두):
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| 이름 | 설명 |
+|------|------|
+| `PUBLIC_DATA_API_KEY` | [공공데이터포털](https://www.data.go.kr) 청약홈 API 인증키 |
 
-## Learn More
+4. Deploy — Framework Preset: **Next.js** (자동 감지)
 
-To learn more about Next.js, take a look at the following resources:
+빌드 명령: `npm run build` · 출력: Next.js 기본
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 주요 기능
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- 분양정보 조회 · 단지 상세 페이지
+- 지역별 경쟁률 통계
+- 당첨자·가점 통계
+- AI 당첨 확률 계산기
+- 청약 핫플레이스 지도 (히트맵 + Bottom Sheet)
 
-## Deploy on Vercel
+## 데이터 출처
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+공공데이터포털 청약홈 OpenAPI · 한국부동산원

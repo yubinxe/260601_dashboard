@@ -1,0 +1,68 @@
+/* ui.jsx — shared primitives: Card, Pill, icons, section headers */
+
+function Card({ children, pad = true, className = "", style = {}, delay = 0 }) {
+  return (
+    <div className={"rise " + className} style={{
+      background: "var(--surface)",
+      border: "1px solid var(--line)",
+      borderRadius: "var(--r-lg)",
+      boxShadow: "var(--shadow)",
+      padding: pad ? "var(--pad-card)" : 0,
+      animationDelay: delay + "ms",
+      ...style,
+    }}>{children}</div>
+  );
+}
+
+function CardHead({ title, sub, right }) {
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 22 }}>
+      <div>
+        <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--ink)" }}>{title}</div>
+        {sub && <div style={{ fontSize: 13.5, color: "var(--ink-3)", marginTop: 5, fontWeight: 450 }}>{sub}</div>}
+      </div>
+      {right}
+    </div>
+  );
+}
+
+const STATUS = {
+  soon:     { label: "마감 임박", color: "var(--hot)",    soft: "var(--hot-soft)" },
+  open:     { label: "접수중",    color: "var(--accent)", soft: "var(--accent-soft)" },
+  upcoming: { label: "접수 예정", color: "var(--ink-2)",  soft: "var(--track)" },
+  closed:   { label: "마감",      color: "var(--ink-3)",  soft: "var(--track)" },
+};
+
+function StatusPill({ status, pulse = false }) {
+  const s = STATUS[status];
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 6,
+      padding: "4px 11px 4px 9px", borderRadius: 99,
+      background: s.soft, color: s.color,
+      fontSize: 12.5, fontWeight: 650, whiteSpace: "nowrap",
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: 99, background: s.color, animation: pulse ? "pulseDot 1.6s ease-in-out infinite" : "none" }} />
+      {s.label}
+    </span>
+  );
+}
+
+function Icon({ name, size = 18 }) {
+  const p = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" };
+  const paths = {
+    search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>,
+    chevron: <path d="m6 9 6 6 6-6" />,
+    pin: <><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="2.6" /></>,
+    home: <><path d="M3 11.5 12 4l9 7.5" /><path d="M5 10v9.5h14V10" /></>,
+    chart: <><path d="M4 20V10" /><path d="M10 20V4" /><path d="M16 20v-7" /><path d="M22 20H2" /></>,
+    users: <><circle cx="9" cy="8" r="3.2" /><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5" /><path d="M16 5.2A3.2 3.2 0 0 1 16 11M21 20c0-2.6-1.5-4.5-3.6-5.2" /></>,
+    arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
+    clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
+    spark: <path d="M12 3l2.2 6.2L20 11l-5.8 1.8L12 19l-2.2-6.2L4 11l5.8-1.8z" />,
+    grid: <><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></>,
+  };
+  return <svg {...p}>{paths[name]}</svg>;
+}
+
+Object.assign(window, { Card, CardHead, StatusPill, Icon, STATUS });

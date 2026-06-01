@@ -1,0 +1,136 @@
+/* ============================================================
+   청약 대시보드 — Apple-inspired modern minimal system
+   ============================================================ */
+
+:root {
+  /* accent (overridable via tweaks) */
+  --accent: #0071e3;
+  --accent-press: #0062c4;
+  --accent-soft: rgba(0, 113, 227, 0.10);
+
+  /* fonts (overridable via tweaks) */
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-display: var(--font-sans);
+
+  /* radii */
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-pill: 980px;
+
+  /* density-driven spacing (set by [data-density]) */
+  --pad-card: 28px;
+  --row-h: 56px;
+  --gap: 20px;
+
+  /* motion */
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---------- LIGHT (default) ---------- */
+:root,
+[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-sub: #f5f5f7;
+  --surface: #ffffff;
+  --surface-2: #fbfbfd;
+  --ink: #1d1d1f;
+  --ink-2: #6e6e73;
+  --ink-3: #86868b;
+  --line: rgba(0, 0, 0, 0.09);
+  --line-strong: rgba(0, 0, 0, 0.16);
+  --shadow: 0 1px 1px rgba(0,0,0,0.03), 0 6px 20px -10px rgba(0,0,0,0.10);
+  --shadow-lift: 0 2px 6px rgba(0,0,0,0.05), 0 22px 48px -18px rgba(0,0,0,0.20);
+  --pos: #1a8a4a;
+  --pos-soft: rgba(26,138,74,0.12);
+  --warn: #c75a00;
+  --warn-soft: rgba(199,90,0,0.12);
+  --hot: #d8362f;
+  --hot-soft: rgba(216,54,47,0.12);
+  --track: rgba(0,0,0,0.06);
+}
+
+/* ---------- DARK ---------- */
+[data-theme="dark"] {
+  --bg: #000000;
+  --bg-sub: #0a0a0c;
+  --surface: #161617;
+  --surface-2: #1d1d1f;
+  --ink: #f5f5f7;
+  --ink-2: #a1a1a6;
+  --ink-3: #86868b;
+  --line: rgba(255, 255, 255, 0.10);
+  --line-strong: rgba(255, 255, 255, 0.20);
+  --shadow: 0 1px 1px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.6);
+  --shadow-lift: 0 2px 8px rgba(0,0,0,0.45), 0 26px 56px -18px rgba(0,0,0,0.8);
+  --pos: #3ddc7e;
+  --pos-soft: rgba(61,220,126,0.16);
+  --warn: #ff9f45;
+  --warn-soft: rgba(255,159,69,0.16);
+  --hot: #ff6b63;
+  --hot-soft: rgba(255,107,99,0.16);
+  --track: rgba(255,255,255,0.10);
+}
+
+/* ---------- DENSITY ---------- */
+[data-density="compact"] { --pad-card: 18px; --row-h: 46px; --gap: 14px; }
+[data-density="regular"] { --pad-card: 28px; --row-h: 56px; --gap: 20px; }
+[data-density="comfy"]   { --pad-card: 36px; --row-h: 66px; --gap: 28px; }
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-sub);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  letter-spacing: -0.01em;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  transition: background 0.5s var(--ease), color 0.5s var(--ease);
+}
+
+#root { min-height: 100%; }
+
+::selection { background: var(--accent-soft); }
+
+/* numeric tabular alignment helper */
+.tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+/* scrollbars */
+*::-webkit-scrollbar { width: 11px; height: 11px; }
+*::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 99px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* keyframes */
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes growBar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.7); }
+}
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.rise { animation: riseIn 0.7s var(--ease-out) both; }
+
+button { font-family: inherit; cursor: pointer; }

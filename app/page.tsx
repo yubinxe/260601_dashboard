@@ -1,72 +1,132 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
+import { format, subMonths } from 'date-fns'
+import { fetchAnnouncements } from '@/lib/api'
+import { buildDashboardSummary } from '@/lib/announcement-helpers'
+import type { HeroAnnouncement, DashboardKpi } from '@/lib/announcement-helpers'
+import { Icon } from '@/components/ui'
+import SiteHeader from '@/components/layout/SiteHeader'
+import Hero from '@/components/dashboard/Hero'
+import KpiStrip from '@/components/dashboard/KpiStrip'
 
 const AnnouncementTab = dynamic(() => import('@/components/announcements/AnnouncementTab'), { ssr: false })
-const CompetitionTab  = dynamic(() => import('@/components/competition/CompetitionTab'),   { ssr: false })
-const WinnersTab      = dynamic(() => import('@/components/winners/WinnersTab'),            { ssr: false })
+const CompetitionTab = dynamic(() => import('@/components/competition/CompetitionTab'), { ssr: false })
+const WinnersTab = dynamic(() => import('@/components/winners/WinnersTab'), { ssr: false })
+const PredictionTab = dynamic(() => import('@/components/prediction/PredictionTab'), { ssr: false })
+const HotMapTab = dynamic(() => import('@/components/hotmap/HotMapTab'), { ssr: false })
 
-const TABS = [
-  { id: 'announcements', label: '📋 분양정보', sub: '모집공고 목록' },
-  { id: 'competition',   label: '🔥 경쟁률 현황', sub: '실시간 접수 경쟁률' },
-  { id: 'winners',       label: '📊 당첨자 통계', sub: '신청·당첨 분석' },
-] as const
+type TabId = 'ann' | 'comp' | 'win' | 'predict' | 'map'
 
-type TabId = (typeof TABS)[number]['id']
+const TABS: { id: TabId; label: string; icon: 'home' | 'chart' | 'users' | 'spark' | 'pin' }[] = [
+  { id: 'ann', label: '분양정보', icon: 'home' },
+  { id: 'comp', label: '경쟁률 현황', icon: 'chart' },
+  { id: 'map', label: '핫플레이스', icon: 'pin' },
+  { id: 'win', label: '당첨자 통계', icon: 'users' },
+  { id: 'predict', label: 'AI 당첨 예측', icon: 'spark' },
+]
+
+const EMPTY_KPI: DashboardKpi = {
+  openCount: 0,
+  soonCount: 0,
+  totalUnits: 0,
+  updated: '—',
+}
 
 export default function Page() {
-  const [activeTab, setActiveTab] = useState<TabId>('announcements')
+  const [tab, setTab] = useState<TabId>('ann')
+  const [dark, setDark] = useState(false)
+  const [heroItems, setHeroItems] = useState<HeroAnnouncement[]>([])
+  const [kpi, setKpi] = useState<DashboardKpi>(EMPTY_KPI)
+  const [dashLoading, setDashLoading] = useState(true)
+
+  useEffect(() => {
+    const today = new Date()
+    const dateFrom = format(subMonths(today, 2), 'yyyy-MM-dd')
+    const dateTo = format(subMonths(today, -2), 'yyyy-MM-dd')
+
+    fetchAnnouncements({ page: 1, perPage: 80, dateFrom, dateTo })
+      .then(res => {
+        const { heroItems: hero, kpi: summary } = buildDashboardSummary(res.data ?? [])
+        setHeroItems(hero)
+        setKpi(summary)
+      })
+      .catch(() => {
+        setHeroItems([])
+        setKpi(EMPTY_KPI)
+      })
+      .finally(() => setDashLoading(false))
+  }, [])
+
+  const toggleDark = () => {
+    const next = !dark
+    setDark(next)
+    document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light')
+  }
 
   return (
-    <div className="min-h-screen">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-blue-700 to-blue-500 text-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">🏠 청약 현황 대시보드</h1>
-              <p className="text-blue-100 text-sm mt-0.5">청약홈 공공데이터 기반 실시간 분석</p>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-sub)' }}>
+      <SiteHeader dark={dark} onToggleTheme={toggleDark} updated={kpi.updated} />
+
+      <main className="dash-main" style={{ maxWidth: 1240, margin: '0 auto', padding: '40px 32px 80px' }}>
+        {dashLoading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap)', marginBottom: 'var(--gap)' }}>
+            <div style={{ height: 120, borderRadius: 'var(--r-lg)', background: 'var(--track)' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--gap)' }}>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} style={{ height: 88, borderRadius: 'var(--r-md)', background: 'var(--track)' }} />
+              ))}
             </div>
-            <span className="text-xs text-blue-200 hidden sm:block">출처: 한국부동산원 청약홈</span>
+          </div>
+        ) : (
+          <>
+            <Hero items={heroItems} />
+            <KpiStrip kpi={kpi} />
+          </>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'center', margin: '8px 0 var(--gap)', overflowX: 'auto' }}>
+          <div
+            className="tab-bar"
+            style={{
+              display: 'inline-flex',
+              gap: 4,
+              padding: 4,
+              borderRadius: 14,
+              background: 'var(--bg-sub)',
+              border: '1px solid var(--line)',
+            }}
+          >
+            {TABS.map(t => {
+              const on = tab === t.id
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  className="tab-btn"
+                  data-active={on ? 'true' : 'false'}
+                  onClick={() => setTab(t.id)}
+                >
+                  <Icon name={t.icon} size={17} />
+                  {t.label}
+                </button>
+              )
+            })}
           </div>
         </div>
-      </header>
 
-      {/* Tab Nav */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <nav className="flex gap-1 overflow-x-auto">
-            {TABS.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex-shrink-0 flex flex-col items-start px-5 py-3.5 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === tab.id
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
-                }`}
-              >
-                <span>{tab.label}</span>
-                <span className={`text-xs font-normal mt-0.5 ${activeTab === tab.id ? 'text-blue-400' : 'text-slate-400'}`}>
-                  {tab.sub}
-                </span>
-              </button>
-            ))}
-          </nav>
+        <div key={tab} style={{ animation: 'fadeIn .45s ease both' }}>
+          {tab === 'ann' && <AnnouncementTab />}
+          {tab === 'comp' && <CompetitionTab />}
+          {tab === 'win' && <WinnersTab />}
+          {tab === 'predict' && <PredictionTab />}
+          {tab === 'map' && <HotMapTab />}
         </div>
-      </div>
-
-      {/* Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        {activeTab === 'announcements' && <AnnouncementTab />}
-        {activeTab === 'competition'   && <CompetitionTab />}
-        {activeTab === 'winners'       && <WinnersTab />}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-200 mt-12 py-6">
-        <p className="text-center text-xs text-slate-400">
+      <footer style={{ borderTop: '1px solid var(--line)', padding: '24px 32px', textAlign: 'center' }}>
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--ink-3)' }}>
           데이터 출처: 공공데이터포털 청약홈 OpenAPI · 한국부동산원
         </p>
       </footer>

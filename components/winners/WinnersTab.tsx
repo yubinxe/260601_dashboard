@@ -7,45 +7,92 @@ import {
 } from 'recharts'
 import { fetchWinnersAge, fetchWinnersRegion, fetchWinnersScore } from '@/lib/api'
 import type { AgeStatItem, AreaStatItem, ScoreStatItem } from '@/lib/types'
+import { CardHead } from '@/components/ui'
 
-// YYYYMM → YYYY년 MM월
 function fmtMonth(ym: string) {
   if (!ym || ym.length < 6) return ym
   return `${ym.slice(0, 4)}년 ${ym.slice(4, 6)}월`
 }
 
-function MonthSelect({
-  value,
-  months,
-  onChange,
-}: {
-  value: string
-  months: string[]
-  onChange: (v: string) => void
-}) {
-  if (months.length === 0) return null
-  return (
-    <select
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-    >
-      {months.map(m => (
-        <option key={m} value={m}>{fmtMonth(m)}</option>
-      ))}
-    </select>
-  )
+const cardStyle: React.CSSProperties = {
+  background: 'var(--surface)',
+  border: '1px solid var(--line)',
+  borderRadius: 'var(--r-lg)',
+  boxShadow: 'var(--shadow)',
+  padding: 'var(--pad-card)',
 }
 
-function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+const selectStyle: React.CSSProperties = {
+  padding: '9px 32px 9px 14px',
+  borderRadius: 'var(--r-sm)',
+  border: '1px solid var(--line)',
+  background: 'var(--surface)',
+  color: 'var(--ink)',
+  fontSize: 13.5,
+  fontFamily: 'inherit',
+  outline: 'none',
+  appearance: 'none',
+  WebkitAppearance: 'none',
+  cursor: 'pointer',
+}
+
+function SelectWrap({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+  if (options.length === 0) return null
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4 flex flex-col gap-1">
-      <span className="text-xs text-slate-500">{label}</span>
-      <span className="text-2xl font-bold text-slate-800">{value}</span>
-      {sub && <span className="text-xs text-slate-400">{sub}</span>}
+    <div style={{ position: 'relative', display: 'inline-flex' }}>
+      <select value={value} onChange={e => onChange(e.target.value)} style={selectStyle}>
+        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+      <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--ink-3)', display: 'flex' }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" /></svg>
+      </span>
     </div>
   )
 }
+
+function ScoreCard({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: boolean }) {
+  return (
+    <div style={{
+      background: 'var(--surface)', border: '1px solid var(--line)',
+      borderRadius: 'var(--r-md)', padding: '20px 22px',
+      boxShadow: 'var(--shadow)',
+    }}>
+      <div style={{ fontSize: 13, color: 'var(--ink-3)', fontWeight: 550 }}>{label}</div>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 10 }}>
+        <span className="tnum" style={{
+          fontSize: 38, fontWeight: 760, letterSpacing: '-0.04em', lineHeight: 1,
+          color: accent ? 'var(--accent)' : 'var(--ink)',
+        }}>
+          {value}
+        </span>
+        <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink-3)' }}>점</span>
+      </div>
+      {sub && <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 10, fontWeight: 450 }}>{sub}</div>}
+    </div>
+  )
+}
+
+const thStyle: React.CSSProperties = {
+  padding: '13px 18px',
+  fontSize: 11.5,
+  fontWeight: 650,
+  color: 'var(--ink-3)',
+  letterSpacing: '0.02em',
+  whiteSpace: 'nowrap',
+  textAlign: 'left',
+  background: 'var(--surface-2)',
+  borderBottom: '1px solid var(--line)',
+}
+
+const REGIONS = [
+  { code: '', name: '전체' },
+  { code: '100', name: '서울' }, { code: '200', name: '강원' }, { code: '300', name: '대전' },
+  { code: '312', name: '충남' }, { code: '338', name: '세종' }, { code: '360', name: '충북' },
+  { code: '400', name: '인천' }, { code: '410', name: '경기' }, { code: '500', name: '광주' },
+  { code: '513', name: '전남' }, { code: '560', name: '전북' }, { code: '600', name: '부산' },
+  { code: '621', name: '경남' }, { code: '680', name: '울산' }, { code: '690', name: '제주' },
+  { code: '700', name: '대구' }, { code: '712', name: '경북' },
+]
 
 export default function WinnersTab() {
   // ── 연령별 통계 ─────────────────────────────────────
@@ -125,21 +172,11 @@ export default function WinnersTab() {
   const regionChartData = Array.from(regionMap.values())
 
   // ── 가점 통계 ────────────────────────────────────────
-  const [allScoreData, setAllScoreData]   = useState<ScoreStatItem[]>([])
-  const [scoreMonths, setScoreMonths]     = useState<string[]>([])
-  const [scoreMonth, setScoreMonth]       = useState('')
-  const [scoreRegion, setScoreRegion]     = useState('')
-  const [scoreLoading, setScoreLoading]   = useState(false)
-
-  const REGIONS = [
-    { code: '', name: '전체' },
-    { code: '100', name: '서울' }, { code: '200', name: '강원' }, { code: '300', name: '대전' },
-    { code: '312', name: '충남' }, { code: '338', name: '세종' }, { code: '360', name: '충북' },
-    { code: '400', name: '인천' }, { code: '410', name: '경기' }, { code: '500', name: '광주' },
-    { code: '513', name: '전남' }, { code: '560', name: '전북' }, { code: '600', name: '부산' },
-    { code: '621', name: '경남' }, { code: '680', name: '울산' }, { code: '690', name: '제주' },
-    { code: '700', name: '대구' }, { code: '712', name: '경북' },
-  ]
+  const [allScoreData, setAllScoreData] = useState<ScoreStatItem[]>([])
+  const [scoreMonths, setScoreMonths]   = useState<string[]>([])
+  const [scoreMonth, setScoreMonth]     = useState('')
+  const [scoreRegion, setScoreRegion]   = useState('')
+  const [scoreLoading, setScoreLoading] = useState(false)
 
   useEffect(() => {
     setScoreLoading(true)
@@ -172,150 +209,161 @@ export default function WinnersTab() {
     ? (filteredScore.reduce((s, d) => s + parseFloat(d.MED_SCORE || '0'), 0) / filteredScore.length).toFixed(1)
     : '-'
 
+  const Skeleton = ({ h = 240 }: { h?: number }) => (
+    <div style={{ height: h, borderRadius: 12, background: 'var(--track)' }} />
+  )
+
   return (
-    <div className="space-y-6">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap)' }}>
       {/* ── 연령대별 현황 ── */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-          <div>
-            <h3 className="font-semibold text-slate-800">연령대별 현황</h3>
-            <p className="text-xs text-slate-400 mt-0.5">30대 ~ 60대 이상 분포</p>
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex rounded-lg border border-slate-200 overflow-hidden text-sm">
-              <button
-                onClick={() => setAgeMode('applicants')}
-                className={`px-4 py-1.5 ${ageMode === 'applicants' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
-              >
-                신청자
-              </button>
-              <button
-                onClick={() => setAgeMode('winners')}
-                className={`px-4 py-1.5 ${ageMode === 'winners' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
-              >
-                당첨자
-              </button>
-            </div>
-            <MonthSelect value={ageMonth} months={ageMonths} onChange={setAgeMonth} />
-          </div>
-        </div>
-        {ageLoading ? (
-          <div className="h-56 bg-slate-50 rounded-lg animate-pulse" />
-        ) : ageChartData.length === 0 ? (
-          <div className="h-56 flex items-center justify-center text-slate-400 text-sm">데이터 없음</div>
+      <div className="rise" style={cardStyle}>
+        <CardHead
+          title="연령대별 현황"
+          sub="30대 ~ 60대 이상 분포"
+          wrapRight
+          right={
+            <>
+              <div style={{
+                display: 'inline-flex', borderRadius: 10, overflow: 'hidden',
+                border: '1px solid var(--line)', fontSize: 13.5,
+              }}>
+                {(['applicants', 'winners'] as const).map(mode => (
+                  <button key={mode} onClick={() => setAgeMode(mode)} style={{
+                    padding: '8px 16px', border: 'none',
+                    background: ageMode === mode ? 'var(--accent)' : 'transparent',
+                    color: ageMode === mode ? '#fff' : 'var(--ink-2)',
+                    fontWeight: 650, fontFamily: 'inherit', cursor: 'pointer',
+                    transition: 'all .2s',
+                  }}>
+                    {mode === 'applicants' ? '신청자' : '당첨자'}
+                  </button>
+                ))}
+              </div>
+              <SelectWrap
+                value={ageMonth}
+                onChange={setAgeMonth}
+                options={ageMonths.map(m => ({ value: m, label: fmtMonth(m) }))}
+              />
+            </>
+          }
+        />
+        {ageLoading ? <Skeleton h={220} /> : ageChartData.length === 0 ? (
+          <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-3)', fontSize: 14 }}>데이터 없음</div>
         ) : (
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={ageChartData} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="name" tick={{ fontSize: 13, fill: '#64748b' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={v => v.toLocaleString()} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
+              <XAxis dataKey="name" tick={{ fontSize: 13, fill: 'var(--ink-3)' }} />
+              <YAxis tick={{ fontSize: 11, fill: 'var(--ink-3)' }} tickFormatter={v => v.toLocaleString()} />
               <Tooltip
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 formatter={(v: any) => [Number(v).toLocaleString() + '명', ageMode === 'winners' ? '당첨자' : '신청자']}
-                contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}
+                contentStyle={{ borderRadius: 12, border: '1px solid var(--line)', background: 'var(--surface)', fontSize: 12, color: 'var(--ink)' }}
               />
-              <Bar dataKey="value" name={ageMode === 'winners' ? '당첨자' : '신청자'} fill="#3b82f6" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="value" name={ageMode === 'winners' ? '당첨자' : '신청자'} fill="var(--accent)" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}
       </div>
 
       {/* ── 지역별 신청·당첨자 ── */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-          <div>
-            <h3 className="font-semibold text-slate-800">지역별 신청·당첨자 현황</h3>
-            <p className="text-xs text-slate-400 mt-0.5">전연령 합산 기준</p>
-          </div>
-          <MonthSelect value={regionMonth} months={regionMonths} onChange={setRegionMonth} />
-        </div>
-        {regionLoading ? (
-          <div className="h-64 bg-slate-50 rounded-lg animate-pulse" />
-        ) : regionChartData.length === 0 ? (
-          <div className="h-64 flex items-center justify-center text-slate-400 text-sm">데이터 없음</div>
+      <div className="rise" style={{ ...cardStyle, animationDelay: '60ms' }}>
+        <CardHead
+          title="지역별 신청·당첨자 현황"
+          sub="전연령 합산 기준"
+          right={
+            <SelectWrap
+              value={regionMonth}
+              onChange={setRegionMonth}
+              options={regionMonths.map(m => ({ value: m, label: fmtMonth(m) }))}
+            />
+          }
+        />
+        {regionLoading ? <Skeleton h={280} /> : regionChartData.length === 0 ? (
+          <div style={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-3)', fontSize: 14 }}>데이터 없음</div>
         ) : (
           <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={regionChartData} margin={{ top: 4, right: 8, left: 0, bottom: 40 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} angle={-30} textAnchor="end" interval={0} />
-              <YAxis tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={v => v.toLocaleString()} />
+            <BarChart data={regionChartData} margin={{ top: 4, right: 8, left: 0, bottom: 44 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--ink-3)' }} angle={-30} textAnchor="end" interval={0} />
+              <YAxis tick={{ fontSize: 11, fill: 'var(--ink-3)' }} tickFormatter={v => v.toLocaleString()} />
               <Tooltip
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 formatter={(v: any, name: any) => [Number(v).toLocaleString() + '명', name]}
-                contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}
+                contentStyle={{ borderRadius: 12, border: '1px solid var(--line)', background: 'var(--surface)', fontSize: 12, color: 'var(--ink)' }}
               />
-              <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-              <Bar dataKey="신청자" fill="#94a3b8" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="당첨자" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8, color: 'var(--ink-2)' }} />
+              <Bar dataKey="신청자" fill="var(--ink-3)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="당첨자" fill="var(--accent)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}
       </div>
 
       {/* ── 가점 통계 ── */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-          <div>
-            <h3 className="font-semibold text-slate-800">가점제 당첨 통계</h3>
-            <p className="text-xs text-slate-400 mt-0.5">지역·거주구분별 가점 분포</p>
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <select
-              value={scoreRegion}
-              onChange={e => setScoreRegion(e.target.value)}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {REGIONS.map(r => <option key={r.code} value={r.code}>{r.name}</option>)}
-            </select>
-            <MonthSelect value={scoreMonth} months={scoreMonths} onChange={setScoreMonth} />
-          </div>
-        </div>
+      <div className="rise" style={{ ...cardStyle, animationDelay: '120ms' }}>
+        <CardHead
+          title="가점제 당첨 통계"
+          sub="지역·거주구분별 가점 분포"
+          wrapRight
+          right={
+            <>
+              <SelectWrap
+                value={scoreRegion}
+                onChange={setScoreRegion}
+                options={REGIONS.map(r => ({ value: r.code, label: r.name }))}
+              />
+              <SelectWrap
+                value={scoreMonth}
+                onChange={setScoreMonth}
+                options={scoreMonths.map(m => ({ value: m, label: fmtMonth(m) }))}
+              />
+            </>
+          }
+        />
 
         {scoreLoading ? (
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-20 bg-slate-100 rounded-xl animate-pulse" />)}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} h={90} />)}
             </div>
-            <div className="h-32 bg-slate-50 rounded-lg animate-pulse" />
+            <Skeleton h={120} />
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-              <StatCard label="평균 가점" value={avgScore !== '-' ? `${avgScore}점` : '-'} sub="선택 지역 평균" />
-              <StatCard label="중위 가점" value={medScore !== '-' ? `${medScore}점` : '-'} sub="중앙값" />
-              <StatCard label="최고 가점" value={maxTop !== '-' ? `${maxTop}점` : '-'} sub="최고 기록" />
-              <StatCard label="최저 가점" value={minLow !== '-' ? `${minLow}점` : '-'} sub="최저 기록" />
+            <div className="score-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 20 }}>
+              <ScoreCard label="평균 가점" value={avgScore !== '-' ? avgScore : '-'} sub="선택 지역 평균" accent />
+              <ScoreCard label="중위 가점" value={medScore !== '-' ? medScore : '-'} sub="중앙값" />
+              <ScoreCard label="최고 가점" value={maxTop !== '-' ? maxTop : '-'} sub="최고 기록" />
+              <ScoreCard label="최저 가점" value={minLow !== '-' ? minLow : '-'} sub="최저 기록(커트라인)" />
             </div>
 
             {filteredScore.length > 0 ? (
-              <div className="overflow-x-auto rounded-lg border border-slate-100">
-                <table className="w-full text-sm">
+              <div style={{ overflowX: 'auto', borderRadius: 'var(--r-md)', border: '1px solid var(--line)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 500 }}>
                   <thead>
-                    <tr className="bg-slate-50">
-                      <th className="px-4 py-2 text-left text-xs font-semibold text-slate-500">지역</th>
-                      <th className="px-4 py-2 text-left text-xs font-semibold text-slate-500">거주구분</th>
-                      <th className="px-4 py-2 text-right text-xs font-semibold text-slate-500">평균</th>
-                      <th className="px-4 py-2 text-right text-xs font-semibold text-slate-500">중위</th>
-                      <th className="px-4 py-2 text-right text-xs font-semibold text-slate-500">최고</th>
-                      <th className="px-4 py-2 text-right text-xs font-semibold text-slate-500">최저</th>
+                    <tr>
+                      {['지역', '거주구분', '평균', '중위', '최고', '최저'].map((h, i) => (
+                        <th key={h} style={{ ...thStyle, textAlign: i >= 2 ? 'right' : 'left' }}>{h}</th>
+                      ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody>
                     {filteredScore.map((item, i) => (
-                      <tr key={i} className="hover:bg-slate-50">
-                        <td className="px-4 py-2 font-medium text-slate-800">{item.SUBSCRPT_AREA_CODE_NM}</td>
-                        <td className="px-4 py-2 text-slate-600">{item.RESIDE_SECD_NM}</td>
-                        <td className="px-4 py-2 text-right font-semibold text-blue-600">{item.AVRG_SCORE}점</td>
-                        <td className="px-4 py-2 text-right text-slate-600">{item.MED_SCORE}점</td>
-                        <td className="px-4 py-2 text-right text-green-600">{item.TOP_SCORE}점</td>
-                        <td className="px-4 py-2 text-right text-slate-400">{item.LWET_SCORE}점</td>
+                      <tr key={i} className="rowhover">
+                        <td style={{ padding: '13px 18px', fontSize: 13.5, fontWeight: 650, color: 'var(--ink)', borderBottom: '1px solid var(--line)' }}>{item.SUBSCRPT_AREA_CODE_NM}</td>
+                        <td style={{ padding: '13px 18px', fontSize: 13.5, color: 'var(--ink-2)', borderBottom: '1px solid var(--line)' }}>{item.RESIDE_SECD_NM}</td>
+                        <td style={{ padding: '13px 18px', textAlign: 'right', fontSize: 14, fontWeight: 700, color: 'var(--accent)', borderBottom: '1px solid var(--line)' }} className="tnum">{item.AVRG_SCORE}점</td>
+                        <td style={{ padding: '13px 18px', textAlign: 'right', fontSize: 13.5, color: 'var(--ink-2)', borderBottom: '1px solid var(--line)' }} className="tnum">{item.MED_SCORE}점</td>
+                        <td style={{ padding: '13px 18px', textAlign: 'right', fontSize: 13.5, color: 'var(--pos)', borderBottom: '1px solid var(--line)' }} className="tnum">{item.TOP_SCORE}점</td>
+                        <td style={{ padding: '13px 18px', textAlign: 'right', fontSize: 13.5, color: 'var(--ink-3)', borderBottom: '1px solid var(--line)' }} className="tnum">{item.LWET_SCORE}점</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             ) : (
-              <div className="h-24 flex items-center justify-center text-slate-400 text-sm">
+              <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--ink-3)', fontSize: 14 }}>
                 해당 조건의 데이터가 없습니다
               </div>
             )}

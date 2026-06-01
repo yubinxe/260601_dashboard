@@ -81,3 +81,10 @@ export function fetchWinnersScore(params: { month?: string; region?: string }) {
     region: params.region ?? '',
   })
 }
+
+// ── 핫플레이스 지도 ───────────────────────────────────────
+export function fetchHotmap(params: { month?: string } = {}) {
+  return get<import('./hotmap-types').HotmapPayload>('/api/hotmap', {
+    month: params.month ?? '',
+  })
+}
