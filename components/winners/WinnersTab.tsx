@@ -3,33 +3,39 @@
 import { useState, useEffect } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Legend, RadarChart, PolarGrid,
-  PolarAngleAxis, Radar,
+  ResponsiveContainer, Legend,
 } from 'recharts'
 import { fetchWinnersAge, fetchWinnersRegion, fetchWinnersScore } from '@/lib/api'
 import type { AgeStatItem, AreaStatItem, ScoreStatItem } from '@/lib/types'
-import { format, subMonths } from 'date-fns'
 
-const REGIONS = [
-  { code: '', name: '전체' },
-  { code: '100', name: '서울' },
-  { code: '200', name: '인천' },
-  { code: '300', name: '경기' },
-  { code: '400', name: '강원' },
-  { code: '500', name: '충북' },
-  { code: '600', name: '충남' },
-  { code: '700', name: '대전' },
-  { code: '800', name: '전북' },
-  { code: '900', name: '전남' },
-  { code: '1000', name: '광주' },
-  { code: '1100', name: '경북' },
-  { code: '1200', name: '경남' },
-  { code: '1300', name: '대구' },
-  { code: '1400', name: '울산' },
-  { code: '1500', name: '부산' },
-  { code: '1600', name: '제주' },
-  { code: '1700', name: '세종' },
-]
+// YYYYMM → YYYY년 MM월
+function fmtMonth(ym: string) {
+  if (!ym || ym.length < 6) return ym
+  return `${ym.slice(0, 4)}년 ${ym.slice(4, 6)}월`
+}
+
+function MonthSelect({
+  value,
+  months,
+  onChange,
+}: {
+  value: string
+  months: string[]
+  onChange: (v: string) => void
+}) {
+  if (months.length === 0) return null
+  return (
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+    >
+      {months.map(m => (
+        <option key={m} value={m}>{fmtMonth(m)}</option>
+      ))}
+    </select>
+  )
+}
 
 function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
@@ -41,116 +47,141 @@ function StatCard({ label, value, sub }: { label: string; value: string | number
   )
 }
 
-function MonthPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <input
-      type="month"
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-    />
-  )
-}
-
 export default function WinnersTab() {
-  const defaultMonth = format(subMonths(new Date(), 1), 'yyyy-MM')
-
-  // ── 연령별 통계 ──────────────────────────────────────
-  const [ageMonth, setAgeMonth] = useState(defaultMonth)
-  const [ageApplicants, setAgeApplicants] = useState<AgeStatItem[]>([])
-  const [ageWinners, setAgeWinners] = useState<AgeStatItem[]>([])
-  const [ageLoading, setAgeLoading] = useState(false)
-  const [ageMode, setAgeMode] = useState<'applicants' | 'winners'>('winners')
+  // ── 연령별 통계 ─────────────────────────────────────
+  const [allAgeApplicants, setAllAgeApplicants] = useState<AgeStatItem[]>([])
+  const [allAgeWinners, setAllAgeWinners]       = useState<AgeStatItem[]>([])
+  const [ageMonths, setAgeMonths]               = useState<string[]>([])
+  const [ageMonth, setAgeMonth]                 = useState('')
+  const [ageMode, setAgeMode]                   = useState<'applicants' | 'winners'>('winners')
+  const [ageLoading, setAgeLoading]             = useState(false)
 
   useEffect(() => {
     setAgeLoading(true)
-    const ym = ageMonth.replace('-', '')
-    fetchWinnersAge({ monthFrom: ym, monthTo: ym })
-      .then(r => { setAgeApplicants(r.applicants); setAgeWinners(r.winners) })
+    fetchWinnersAge({ monthFrom: '', monthTo: '' })
+      .then(r => {
+        setAllAgeApplicants(r.applicants)
+        setAllAgeWinners(r.winners)
+        const months = [...new Set([
+          ...r.applicants.map(d => d.STAT_DE),
+          ...r.winners.map(d => d.STAT_DE),
+        ])].sort().reverse()
+        setAgeMonths(months)
+        if (months.length > 0) setAgeMonth(months[0])
+      })
       .catch(() => {})
       .finally(() => setAgeLoading(false))
-  }, [ageMonth])
+  }, [])
 
-  const ageSource = ageMode === 'applicants' ? ageApplicants : ageWinners
-  const ageChartData = ageSource.length > 0 ? [
-    { name: '30대', value: Number(ageSource[ageSource.length - 1]?.AGE_30) || 0 },
-    { name: '40대', value: Number(ageSource[ageSource.length - 1]?.AGE_40) || 0 },
-    { name: '50대', value: Number(ageSource[ageSource.length - 1]?.AGE_50) || 0 },
-    { name: '60대+', value: Number(ageSource[ageSource.length - 1]?.AGE_60) || 0 },
+  const ageSource = ageMode === 'applicants' ? allAgeApplicants : allAgeWinners
+  const currentAgeItem = ageSource.find(d => d.STAT_DE === ageMonth)
+  const ageChartData = currentAgeItem ? [
+    { name: '30대', value: Number(currentAgeItem.AGE_30) || 0 },
+    { name: '40대', value: Number(currentAgeItem.AGE_40) || 0 },
+    { name: '50대', value: Number(currentAgeItem.AGE_50) || 0 },
+    { name: '60대+', value: Number(currentAgeItem.AGE_60) || 0 },
   ] : []
 
-  // ── 지역별 통계 ──────────────────────────────────────
-  const [regionMonth, setRegionMonth] = useState(defaultMonth)
-  const [regionApplicants, setRegionApplicants] = useState<AreaStatItem[]>([])
-  const [regionWinners, setRegionWinners] = useState<AreaStatItem[]>([])
-  const [regionLoading, setRegionLoading] = useState(false)
+  // ── 지역별 통계 ─────────────────────────────────────
+  const [allRegionApplicants, setAllRegionApplicants] = useState<AreaStatItem[]>([])
+  const [allRegionWinners, setAllRegionWinners]       = useState<AreaStatItem[]>([])
+  const [regionMonths, setRegionMonths]               = useState<string[]>([])
+  const [regionMonth, setRegionMonth]                 = useState('')
+  const [regionLoading, setRegionLoading]             = useState(false)
 
   useEffect(() => {
     setRegionLoading(true)
-    fetchWinnersRegion({ month: regionMonth.replace('-', '') })
-      .then(r => { setRegionApplicants(r.applicants); setRegionWinners(r.winners) })
+    fetchWinnersRegion({ month: '' })
+      .then(r => {
+        setAllRegionApplicants(r.applicants)
+        setAllRegionWinners(r.winners)
+        const months = [...new Set([
+          ...r.applicants.map(d => d.STAT_DE),
+          ...r.winners.map(d => d.STAT_DE),
+        ])].sort().reverse()
+        setRegionMonths(months)
+        if (months.length > 0) setRegionMonth(months[0])
+      })
       .catch(() => {})
       .finally(() => setRegionLoading(false))
-  }, [regionMonth])
+  }, [])
 
   const regionMap = new Map<string, { name: string; 신청자: number; 당첨자: number }>()
-  regionApplicants.forEach(r => {
-    regionMap.set(r.SUBSCRPT_AREA_CODE, {
-      name: r.SUBSCRPT_AREA_CODE_NM,
-      신청자: (Number(r.AGE_30) + Number(r.AGE_40) + Number(r.AGE_50) + Number(r.AGE_60)),
-      당첨자: 0,
+  allRegionApplicants
+    .filter(d => d.STAT_DE === regionMonth)
+    .forEach(r => {
+      regionMap.set(r.SUBSCRPT_AREA_CODE, {
+        name: r.SUBSCRPT_AREA_CODE_NM,
+        신청자: Number(r.AGE_30) + Number(r.AGE_40) + Number(r.AGE_50) + Number(r.AGE_60),
+        당첨자: 0,
+      })
     })
-  })
-  regionWinners.forEach(r => {
-    const prev = regionMap.get(r.SUBSCRPT_AREA_CODE)
-    if (prev) prev.당첨자 = Number(r.AGE_30) + Number(r.AGE_40) + Number(r.AGE_50) + Number(r.AGE_60)
-  })
+  allRegionWinners
+    .filter(d => d.STAT_DE === regionMonth)
+    .forEach(r => {
+      const prev = regionMap.get(r.SUBSCRPT_AREA_CODE)
+      if (prev) prev.당첨자 = Number(r.AGE_30) + Number(r.AGE_40) + Number(r.AGE_50) + Number(r.AGE_60)
+    })
   const regionChartData = Array.from(regionMap.values())
 
   // ── 가점 통계 ────────────────────────────────────────
-  const [scoreMonth, setScoreMonth] = useState(defaultMonth)
-  const [scoreRegion, setScoreRegion] = useState('')
-  const [scoreData, setScoreData] = useState<ScoreStatItem[]>([])
-  const [scoreLoading, setScoreLoading] = useState(false)
+  const [allScoreData, setAllScoreData]   = useState<ScoreStatItem[]>([])
+  const [scoreMonths, setScoreMonths]     = useState<string[]>([])
+  const [scoreMonth, setScoreMonth]       = useState('')
+  const [scoreRegion, setScoreRegion]     = useState('')
+  const [scoreLoading, setScoreLoading]   = useState(false)
+
+  const REGIONS = [
+    { code: '', name: '전체' },
+    { code: '100', name: '서울' }, { code: '200', name: '강원' }, { code: '300', name: '대전' },
+    { code: '312', name: '충남' }, { code: '338', name: '세종' }, { code: '360', name: '충북' },
+    { code: '400', name: '인천' }, { code: '410', name: '경기' }, { code: '500', name: '광주' },
+    { code: '513', name: '전남' }, { code: '560', name: '전북' }, { code: '600', name: '부산' },
+    { code: '621', name: '경남' }, { code: '680', name: '울산' }, { code: '690', name: '제주' },
+    { code: '700', name: '대구' }, { code: '712', name: '경북' },
+  ]
 
   useEffect(() => {
     setScoreLoading(true)
-    fetchWinnersScore({ month: scoreMonth.replace('-', ''), region: scoreRegion })
-      .then(r => setScoreData(r.data ?? []))
+    fetchWinnersScore({ month: '', region: scoreRegion })
+      .then(r => {
+        const data = r.data ?? []
+        setAllScoreData(data)
+        const months = [...new Set(data.map(d => d.STAT_DE))].sort().reverse()
+        setScoreMonths(months)
+        if (months.length > 0) setScoreMonth(months[0])
+      })
       .catch(() => {})
       .finally(() => setScoreLoading(false))
-  }, [scoreMonth, scoreRegion])
+  }, [scoreRegion])
 
-  const avgScore = scoreData.length > 0
-    ? (scoreData.reduce((s, d) => s + parseFloat(d.AVRG_SCORE || '0'), 0) / scoreData.length).toFixed(1)
-    : '-'
-  const maxTop = scoreData.length > 0
-    ? Math.max(...scoreData.map(d => parseFloat(d.TOP_SCORE || '0'))).toString()
-    : '-'
-  const minLow = scoreData.length > 0
-    ? Math.min(...scoreData.map(d => parseFloat(d.LWET_SCORE || '0'))).toString()
-    : '-'
-  const medScore = scoreData.length > 0
-    ? (scoreData.reduce((s, d) => s + parseFloat(d.MED_SCORE || '0'), 0) / scoreData.length).toFixed(1)
-    : '-'
+  const filteredScore = allScoreData.filter(d =>
+    d.STAT_DE === scoreMonth && (!scoreRegion || d.SUBSCRPT_AREA_CODE === scoreRegion)
+  )
 
-  const radarData = scoreData.map(d => ({
-    subject: `${d.SUBSCRPT_AREA_CODE_NM}\n(${d.RESIDE_SECD_NM})`,
-    평균: parseFloat(d.AVRG_SCORE) || 0,
-    최고: parseFloat(d.TOP_SCORE) || 0,
-    최저: parseFloat(d.LWET_SCORE) || 0,
-  }))
+  const avgScore = filteredScore.length > 0
+    ? (filteredScore.reduce((s, d) => s + parseFloat(d.AVRG_SCORE || '0'), 0) / filteredScore.length).toFixed(1)
+    : '-'
+  const maxTop = filteredScore.length > 0
+    ? Math.max(...filteredScore.map(d => parseFloat(d.TOP_SCORE || '0'))).toString()
+    : '-'
+  const minLow = filteredScore.length > 0
+    ? Math.min(...filteredScore.map(d => parseFloat(d.LWET_SCORE || '0'))).toString()
+    : '-'
+  const medScore = filteredScore.length > 0
+    ? (filteredScore.reduce((s, d) => s + parseFloat(d.MED_SCORE || '0'), 0) / filteredScore.length).toFixed(1)
+    : '-'
 
   return (
     <div className="space-y-6">
-      {/* ── 연령별 당첨자/신청자 ── */}
+      {/* ── 연령대별 현황 ── */}
       <div className="bg-white rounded-xl border border-slate-200 p-5">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           <div>
             <h3 className="font-semibold text-slate-800">연령대별 현황</h3>
             <p className="text-xs text-slate-400 mt-0.5">30대 ~ 60대 이상 분포</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <div className="flex rounded-lg border border-slate-200 overflow-hidden text-sm">
               <button
                 onClick={() => setAgeMode('applicants')}
@@ -165,7 +196,7 @@ export default function WinnersTab() {
                 당첨자
               </button>
             </div>
-            <MonthPicker value={ageMonth} onChange={setAgeMonth} />
+            <MonthSelect value={ageMonth} months={ageMonths} onChange={setAgeMonth} />
           </div>
         </div>
         {ageLoading ? (
@@ -189,14 +220,14 @@ export default function WinnersTab() {
         )}
       </div>
 
-      {/* ── 지역별 신청자/당첨자 ── */}
+      {/* ── 지역별 신청·당첨자 ── */}
       <div className="bg-white rounded-xl border border-slate-200 p-5">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           <div>
             <h3 className="font-semibold text-slate-800">지역별 신청·당첨자 현황</h3>
             <p className="text-xs text-slate-400 mt-0.5">전연령 합산 기준</p>
           </div>
-          <MonthPicker value={regionMonth} onChange={setRegionMonth} />
+          <MonthSelect value={regionMonth} months={regionMonths} onChange={setRegionMonth} />
         </div>
         {regionLoading ? (
           <div className="h-64 bg-slate-50 rounded-lg animate-pulse" />
@@ -236,7 +267,7 @@ export default function WinnersTab() {
             >
               {REGIONS.map(r => <option key={r.code} value={r.code}>{r.name}</option>)}
             </select>
-            <MonthPicker value={scoreMonth} onChange={setScoreMonth} />
+            <MonthSelect value={scoreMonth} months={scoreMonths} onChange={setScoreMonth} />
           </div>
         </div>
 
@@ -245,18 +276,18 @@ export default function WinnersTab() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-20 bg-slate-100 rounded-xl animate-pulse" />)}
             </div>
-            <div className="h-60 bg-slate-50 rounded-lg animate-pulse" />
+            <div className="h-32 bg-slate-50 rounded-lg animate-pulse" />
           </div>
         ) : (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-              <StatCard label="평균 가점" value={avgScore !== '-' ? `${avgScore}점` : '-'} sub="전 지역 평균" />
+              <StatCard label="평균 가점" value={avgScore !== '-' ? `${avgScore}점` : '-'} sub="선택 지역 평균" />
               <StatCard label="중위 가점" value={medScore !== '-' ? `${medScore}점` : '-'} sub="중앙값" />
               <StatCard label="최고 가점" value={maxTop !== '-' ? `${maxTop}점` : '-'} sub="최고 기록" />
               <StatCard label="최저 가점" value={minLow !== '-' ? `${minLow}점` : '-'} sub="최저 기록" />
             </div>
 
-            {scoreData.length > 0 && (
+            {filteredScore.length > 0 ? (
               <div className="overflow-x-auto rounded-lg border border-slate-100">
                 <table className="w-full text-sm">
                   <thead>
@@ -270,7 +301,7 @@ export default function WinnersTab() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {scoreData.map((item, i) => (
+                    {filteredScore.map((item, i) => (
                       <tr key={i} className="hover:bg-slate-50">
                         <td className="px-4 py-2 font-medium text-slate-800">{item.SUBSCRPT_AREA_CODE_NM}</td>
                         <td className="px-4 py-2 text-slate-600">{item.RESIDE_SECD_NM}</td>
@@ -283,10 +314,8 @@ export default function WinnersTab() {
                   </tbody>
                 </table>
               </div>
-            )}
-
-            {scoreData.length === 0 && (
-              <div className="h-32 flex items-center justify-center text-slate-400 text-sm">
+            ) : (
+              <div className="h-24 flex items-center justify-center text-slate-400 text-sm">
                 해당 조건의 데이터가 없습니다
               </div>
             )}

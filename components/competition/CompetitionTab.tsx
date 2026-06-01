@@ -7,7 +7,6 @@ import {
 } from 'recharts'
 import { fetchCompetitionStats, fetchCompetitionSearch, fetchSpecialSupply } from '@/lib/api'
 import type { CompetitionStatItem, CompetitionItem, SpecialSupplyItem } from '@/lib/types'
-import { format, subMonths } from 'date-fns'
 
 const SPECIAL_LABELS: Record<string, string> = {
   MNYCH_HSHLDCO: '다자녀',
@@ -19,48 +18,51 @@ const SPECIAL_LABELS: Record<string, string> = {
   INSTT_RECOMEND_HSHLDCO: '기관추천',
 }
 
-function MonthPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <input
-      type="month"
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-    />
-  )
+// YYYYMM → YYYY년 MM월
+function fmtMonth(ym: string) {
+  if (!ym || ym.length < 6) return ym
+  return `${ym.slice(0, 4)}년 ${ym.slice(4, 6)}월`
 }
 
 export default function CompetitionTab() {
-  const defaultMonth = format(subMonths(new Date(), 1), 'yyyy-MM')
-
-  // ── 지역별 경쟁률 ─────────────────────────────────
-  const [statsMonth, setStatsMonth] = useState(defaultMonth)
-  const [statsData, setStatsData] = useState<CompetitionStatItem[]>([])
+  // ── 지역별 경쟁률 통계 ─────────────────────────────
+  const [allStats, setAllStats]         = useState<CompetitionStatItem[]>([])
+  const [availableMonths, setAvailableMonths] = useState<string[]>([])
+  const [selectedMonth, setSelectedMonth]     = useState('')
   const [statsLoading, setStatsLoading] = useState(false)
-  const [statsError, setStatsError] = useState('')
+  const [statsError, setStatsError]     = useState('')
 
   useEffect(() => {
     setStatsLoading(true)
     setStatsError('')
-    fetchCompetitionStats({ month: statsMonth.replace('-', '') })
-      .then(r => setStatsData(r.data ?? []))
+    // 필터 없이 전체 로드 → 최신 월 자동 감지
+    fetchCompetitionStats({ month: '' })
+      .then(r => {
+        const data = r.data ?? []
+        setAllStats(data)
+        const months = [...new Set(data.map(d => d.STAT_DE))].sort().reverse()
+        setAvailableMonths(months)
+        if (months.length > 0) setSelectedMonth(months[0])
+      })
       .catch(() => setStatsError('데이터 로드 오류'))
       .finally(() => setStatsLoading(false))
-  }, [statsMonth])
+  }, [])
 
-  const chartData = statsData.map(d => ({
-    name: d.SUBSCRPT_AREA_CODE_NM,
-    특별공급: parseFloat(d.SPSPLY_CMPET_RATE) || 0,
-    일반공급: parseFloat(d.SUPLY_CMPET_RATE) || 0,
-  }))
+  const chartData = allStats
+    .filter(d => d.STAT_DE === selectedMonth)
+    .map(d => ({
+      name: d.SUBSCRPT_AREA_CODE_NM,
+      특별공급: parseFloat(d.SPSPLY_CMPET_RATE) || 0,
+      일반공급: parseFloat(d.SUPLY_CMPET_RATE) || 0,
+    }))
 
-  // ── 단지별 경쟁률 검색 ────────────────────────────
-  const [pblancNo, setPblancNo] = useState('')
+  // ── 단지별 경쟁률 검색 ──────────────────────────────
+  const [pblancNo, setPblancNo]     = useState('')
   const [searchInput, setSearchInput] = useState('')
-  const [compData, setCompData] = useState<CompetitionItem[]>([])
-  const [spData, setSpData] = useState<SpecialSupplyItem[]>([])
+  const [compData, setCompData]     = useState<CompetitionItem[]>([])
+  const [spData, setSpData]         = useState<SpecialSupplyItem[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
-  const [searchError, setSearchError] = useState('')
+  const [searchError, setSearchError]     = useState('')
 
   const handleSearch = async () => {
     if (!searchInput.trim()) return
@@ -85,20 +87,31 @@ export default function CompetitionTab() {
     <div className="space-y-6">
       {/* ── 지역별 경쟁률 통계 ── */}
       <div className="bg-white rounded-xl border border-slate-200 p-5">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           <div>
             <h3 className="font-semibold text-slate-800">지역별 청약 경쟁률</h3>
             <p className="text-xs text-slate-400 mt-0.5">특별공급 / 일반공급 경쟁률 비교</p>
           </div>
-          <MonthPicker value={statsMonth} onChange={setStatsMonth} />
+          {availableMonths.length > 0 && (
+            <select
+              value={selectedMonth}
+              onChange={e => setSelectedMonth(e.target.value)}
+              className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {availableMonths.map(m => (
+                <option key={m} value={m}>{fmtMonth(m)}</option>
+              ))}
+            </select>
+          )}
         </div>
+
         {statsLoading ? (
           <div className="h-64 bg-slate-50 rounded-lg animate-pulse" />
         ) : statsError ? (
           <div className="h-64 flex items-center justify-center text-red-500 text-sm">{statsError}</div>
         ) : chartData.length === 0 ? (
           <div className="h-64 flex items-center justify-center text-slate-400 text-sm">
-            해당 월 데이터가 없습니다
+            데이터가 없습니다
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={280}>
@@ -128,14 +141,16 @@ export default function CompetitionTab() {
       {/* ── 단지별 경쟁률 검색 ── */}
       <div className="bg-white rounded-xl border border-slate-200 p-5">
         <h3 className="font-semibold text-slate-800 mb-1">단지별 경쟁률 상세 조회</h3>
-        <p className="text-xs text-slate-400 mb-4">분양정보 탭에서 확인한 공고번호(PBLANC_NO)를 입력하세요</p>
+        <p className="text-xs text-slate-400 mb-4">
+          분양정보 탭에서 확인한 <span className="font-medium text-slate-600">공고번호(PBLANC_NO)</span>를 입력하세요
+        </p>
         <div className="flex gap-2 mb-5">
           <input
             type="text"
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
-            placeholder="공고번호 입력 (예: 2024000001)"
+            placeholder="공고번호 입력 (예: 2026000219)"
             className="flex-1 border border-slate-200 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
@@ -176,9 +191,9 @@ export default function CompetitionTab() {
                           <td className="px-4 py-2 text-right">
                             <span className={`font-semibold ${
                               parseFloat(item.CMPET_RATE) >= 10 ? 'text-red-600' :
-                              parseFloat(item.CMPET_RATE) >= 3 ? 'text-orange-500' : 'text-green-600'
+                              parseFloat(item.CMPET_RATE) >= 3  ? 'text-orange-500' : 'text-green-600'
                             }`}>
-                              {parseFloat(item.CMPET_RATE).toFixed(2)}:1
+                              {item.CMPET_RATE === '-' ? '-' : `${parseFloat(item.CMPET_RATE).toFixed(2)}:1`}
                             </span>
                           </td>
                         </tr>

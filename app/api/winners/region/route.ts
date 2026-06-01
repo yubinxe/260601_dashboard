@@ -7,7 +7,7 @@ async function fetchRegion(endpoint: string, month: string) {
   const params = new URLSearchParams({
     serviceKey: KEY,
     page: '1',
-    perPage: '50',
+    perPage: '500',
     returnType: 'JSON',
   })
   if (month) {

@@ -7,7 +7,7 @@ async function fetchAge(endpoint: string, monthFrom: string, monthTo: string) {
   const params = new URLSearchParams({
     serviceKey: KEY,
     page: '1',
-    perPage: '24',
+    perPage: '100',
     returnType: 'JSON',
   })
   if (monthFrom) params.set('cond[STAT_DE::GTE]', monthFrom)
