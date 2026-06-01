@@ -1061,10 +1061,14 @@ button { font-family: inherit; cursor: pointer; }
   transition: fill 0.35s var(--ease), stroke 0.25s var(--ease), stroke-width 0.25s var(--ease);
   vector-effect: non-scaling-stroke;
 }
-.korea-province:hover {
-  filter: brightness(0.97);
+.korea-province:hover,
+.korea-province--hovered {
+  filter: brightness(0.94);
   stroke: var(--ink);
-  stroke-width: 1.5;
+  stroke-width: 2;
+}
+.korea-province--dimmed {
+  opacity: 0.55;
 }
 .korea-province--active {
   stroke: var(--ink) !important;
@@ -1098,8 +1102,70 @@ button { font-family: inherit; cursor: pointer; }
 .hot-marker-core--hot {
   fill: var(--hot);
 }
-.hot-marker:hover .hot-marker-core {
-  transform: scale(1.2);
+.hot-marker:hover .hot-marker-core,
+.hot-marker--hovered .hot-marker-core {
+  transform: scale(1.35);
+}
+.korea-map-tooltip {
+  position: absolute;
+  z-index: 12;
+  min-width: 168px;
+  max-width: min(280px, 88vw);
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklch, var(--surface) 92%, transparent);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 12px 40px color-mix(in oklch, var(--ink) 14%, transparent);
+  pointer-events: none;
+  animation: koreaTooltipIn 0.18s var(--ease) both;
+}
+@keyframes koreaTooltipIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.korea-map-tooltip__title {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.3;
+}
+.korea-map-tooltip__sub {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: var(--ink-3);
+  line-height: 1.4;
+}
+.korea-map-tooltip__stats {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+.korea-map-tooltip__stats > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 12px;
+}
+.korea-map-tooltip__stats dt {
+  margin: 0;
+  color: var(--ink-3);
+  font-weight: 500;
+}
+.korea-map-tooltip__stats dd {
+  margin: 0;
+  font-weight: 700;
+  color: var(--ink);
+  text-align: right;
+}
+.korea-map-tooltip__hint {
+  margin: 8px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  font-size: 10px;
+  color: var(--ink-3);
 }
 .hot-marker-pulse-ring {
   animation: hotMarkerPulse 2s var(--ease) infinite;

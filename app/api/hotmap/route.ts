@@ -1,10 +1,7 @@
 import { NextRequest } from 'next/server'
-import {
-  KOREA_REGIONS,
-  REGION_BY_CODE,
-  heatLevel,
-  offsetMarkerPosition,
-} from '@/lib/korea-regions'
+import { REGION_BBOX_BY_CODE } from '@/lib/korea-map-data'
+import { layoutHotspotInRegion } from '@/lib/hotmap-layout'
+import { KOREA_REGIONS, REGION_BY_CODE, heatLevel } from '@/lib/korea-regions'
 import type { HotmapPayload, HotmapRegion, HotmapSpot } from '@/lib/hotmap-types'
 import type { Announcement, CompetitionStatItem } from '@/lib/types'
 import { getSubscriptionStatus } from '@/lib/announcement-helpers'
@@ -108,8 +105,15 @@ export async function GET(req: NextRequest) {
       const special = compByRegion.get(code)
       const specialComp = special ? parseRate(special.SPSPLY_CMPET_RATE) : 0
 
+      const count = Math.min(items.length, 12)
+      const bbox = REGION_BBOX_BY_CODE[code] ?? {
+        x: geo.x - 20,
+        y: geo.y - 20,
+        width: 40,
+        height: 40,
+      }
       items.slice(0, 12).forEach((a, i) => {
-        const pos = offsetMarkerPosition(geo.x, geo.y, i, Math.min(items.length, 12))
+        const pos = layoutHotspotInRegion(bbox, i, count)
         const status = getSubscriptionStatus(a)
         hotspots.push({
           id: a.PBLANC_NO || a.HOUSE_MANAGE_NO,

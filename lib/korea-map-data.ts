@@ -1,4 +1,5 @@
 import mapData from '@svg-maps/south-korea'
+import { svgPathBbox } from 'svg-path-bbox'
 
 interface SvgMapLocation {
   id: string
@@ -50,27 +51,26 @@ export const KOREA_PROVINCES: KoreaProvincePath[] = southKoreaMap.locations.map(
   code: SVG_ID_TO_REGION_CODE[loc.id] ?? loc.id,
 }))
 
-/** 경로 좌표의 바운딩 박스 중심 (마커·라벨용) */
-export function pathBBoxCenter(path: string): { x: number; y: number } {
-  const nums = path.match(/-?\d*\.?\d+/g)?.map(Number).filter(n => Number.isFinite(n)) ?? []
-  if (nums.length < 4) return { x: 262, y: 316 }
+const MAP_FALLBACK = { x: 262, y: 316, width: 524, height: 631 }
 
-  const xs: number[] = []
-  const ys: number[] = []
-  for (let i = 0; i + 1 < nums.length; i += 2) {
-    const x = nums[i]
-    const y = nums[i + 1]
-    if (x >= 0 && x <= 600 && y >= 0 && y <= 700) {
-      xs.push(x)
-      ys.push(y)
-    }
-  }
-  if (xs.length === 0) return { x: 262, y: 316 }
-  return {
-    x: (Math.min(...xs) + Math.max(...xs)) / 2,
-    y: (Math.min(...ys) + Math.max(...ys)) / 2,
+/** SVG path의 실제 바운딩 박스 (마커·라벨용) */
+export function pathBBox(path: string): { x: number; y: number; width: number; height: number } {
+  try {
+    const [minX, minY, maxX, maxY] = svgPathBbox(path)
+    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+  } catch {
+    return { ...MAP_FALLBACK }
   }
 }
+
+export function pathBBoxCenter(path: string): { x: number; y: number } {
+  const b = pathBBox(path)
+  return { x: b.x + b.width / 2, y: b.y + b.height / 2 }
+}
+
+export const REGION_BBOX_BY_CODE = Object.fromEntries(
+  KOREA_PROVINCES.map(p => [p.code, pathBBox(p.path)]),
+)
 
 export const REGION_CENTROID_BY_CODE = Object.fromEntries(
   KOREA_PROVINCES.map(p => [p.code, pathBBoxCenter(p.path)]),

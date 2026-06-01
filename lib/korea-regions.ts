@@ -41,21 +41,6 @@ export const KOREA_REGIONS: RegionGeo[] = KOREA_PROVINCES.map(p => {
 
 export const REGION_BY_CODE = Object.fromEntries(KOREA_REGIONS.map(r => [r.code, r]))
 
-export function offsetMarkerPosition(
-  baseX: number,
-  baseY: number,
-  index: number,
-  total: number,
-): { x: number; y: number } {
-  if (total <= 1) return { x: baseX, y: baseY }
-  const angle = (index / total) * Math.PI * 2 - Math.PI / 2
-  const radius = 14 + Math.min(total, 6) * 2
-  return {
-    x: baseX + Math.cos(angle) * radius,
-    y: baseY + Math.sin(angle) * radius,
-  }
-}
-
 export function heatLevel(rate: number): 0 | 1 | 2 | 3 | 4 {
   if (rate >= 40) return 4
   if (rate >= 15) return 3
