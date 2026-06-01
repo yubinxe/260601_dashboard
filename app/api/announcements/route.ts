@@ -1,4 +1,6 @@
 import { NextRequest } from 'next/server'
+import { matchesHouseTypeFilter } from '@/lib/house-types'
+import type { Announcement } from '@/lib/types'
 
 const BASE = 'https://api.odcloud.kr/api'
 const KEY = process.env.PUBLIC_DATA_API_KEY!
@@ -27,6 +29,15 @@ export async function GET(req: NextRequest) {
 
   const url = `${BASE}/ApplyhomeInfoDetailSvc/v1/getAPTLttotPblancDetail?${params}`
   const res = await fetch(url, { next: { revalidate: 300 } })
-  const data = await res.json()
-  return Response.json(data)
+  const json = await res.json()
+
+  if (houseType && Array.isArray(json.data)) {
+    const rows = (json.data as Announcement[]).filter(item =>
+      matchesHouseTypeFilter(item, houseType),
+    )
+    json.data = rows
+    json.currentCount = rows.length
+  }
+
+  return Response.json(json)
 }

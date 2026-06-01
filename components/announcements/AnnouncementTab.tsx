@@ -5,7 +5,12 @@ import { useRouter } from 'next/navigation'
 import { fetchAnnouncements } from '@/lib/api'
 import type { Announcement, AnnouncementsResponse } from '@/lib/types'
 import { formatDate, formatMonth } from '@/lib/format'
-import { HOUSE_TYPE_OPTIONS, type HouseTypeFilter } from '@/lib/house-types'
+import {
+  HOUSE_TYPE_OPTIONS,
+  HOUSE_TYPE_PUBLIC,
+  HOUSE_TYPE_PRIVATE,
+  type HouseTypeFilter,
+} from '@/lib/house-types'
 import { InkTag, InkLink, Pagination } from '@/components/ui/interactive'
 import {
   DateField,
@@ -101,10 +106,10 @@ export default function AnnouncementTab() {
   }
 
   const houseTypeHint =
-    houseType === '01'
+    houseType === HOUSE_TYPE_PRIVATE
       ? '민영주택 분양만 표시 중'
-      : houseType === '02'
-        ? '국민주택 분양만 표시 중'
+      : houseType === HOUSE_TYPE_PUBLIC
+        ? '국민·공공분양 주택만 표시 중'
         : '민영·국민 유형을 선택해 비교할 수 있습니다'
 
   return (
