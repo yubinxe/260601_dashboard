@@ -5,7 +5,14 @@ import { useRouter } from 'next/navigation'
 import { fetchAnnouncements } from '@/lib/api'
 import type { Announcement, AnnouncementsResponse } from '@/lib/types'
 import { formatDate, formatMonth } from '@/lib/format'
+import { HOUSE_TYPE_OPTIONS, type HouseTypeFilter } from '@/lib/house-types'
 import { InkTag, InkLink, Pagination } from '@/components/ui/interactive'
+import {
+  DateField,
+  FilterSearch,
+  FilterSelect,
+  SegmentControl,
+} from '@/components/ui/form-fields'
 import { format, subMonths } from 'date-fns'
 
 const REGIONS = [
@@ -29,76 +36,30 @@ const REGIONS = [
   { code: '712', name: '경북' },
 ]
 
-const S: Record<string, React.CSSProperties> = {
-  card: {
-    background: 'var(--surface)',
-    border: '1px solid var(--line)',
-    borderRadius: 'var(--r-lg)',
-    boxShadow: 'var(--shadow)',
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: 600,
-    color: 'var(--ink-3)',
-    marginBottom: 6,
-    display: 'block',
-    letterSpacing: '0.01em',
-  },
-  input: {
-    padding: '9px 14px',
-    borderRadius: 'var(--r-sm)',
-    border: '1px solid var(--line)',
-    background: 'var(--surface)',
-    color: 'var(--ink)',
-    fontSize: 13.5,
-    fontFamily: 'inherit',
-    outline: 'none',
-    width: '100%',
-    transition: 'border-color .2s var(--ease), box-shadow .2s var(--ease)',
-  },
-  select: {
-    padding: '9px 32px 9px 14px',
-    borderRadius: 'var(--r-sm)',
-    border: '1px solid var(--line)',
-    background: 'var(--surface)',
-    color: 'var(--ink)',
-    fontSize: 13.5,
-    fontFamily: 'inherit',
-    outline: 'none',
-    appearance: 'none' as const,
-    WebkitAppearance: 'none' as const,
-    cursor: 'pointer',
-    transition: 'border-color .2s var(--ease), box-shadow .2s var(--ease)',
-  },
-  th: {
-    padding: '14px 20px',
-    fontSize: 11.5,
-    fontWeight: 650,
-    color: 'var(--ink-3)',
-    letterSpacing: '0.02em',
-    whiteSpace: 'nowrap' as const,
-    textAlign: 'left' as const,
-    background: 'var(--surface-2)',
-    borderBottom: '1px solid var(--line)',
-  },
-  td: {
-    padding: '14px 20px',
-    fontSize: 13.5,
-    color: 'var(--ink-2)',
-    whiteSpace: 'nowrap' as const,
-    borderBottom: '1px solid var(--line)',
-  },
-}
-
 function propertyPath(item: Announcement) {
   const id = item.PBLANC_NO || item.HOUSE_MANAGE_NO
   return `/property/${encodeURIComponent(id)}`
+}
+
+function houseTypeLabel(item: Announcement) {
+  const dtl = item.HOUSE_DTL_SECD_NM || ''
+  if (dtl.includes('민영')) return '민영'
+  if (dtl.includes('국민')) return '국민'
+  return item.HOUSE_DTL_SECD_NM || item.HOUSE_SECD_NM || '—'
+}
+
+function formatReceiptRange(start?: string, end?: string) {
+  if (!start || !end) return '—'
+  const s = formatDate(start.replace(/-/g, ''))
+  const e = formatDate(end.replace(/-/g, ''))
+  return { start: s, end: e }
 }
 
 export default function AnnouncementTab() {
   const router = useRouter()
   const today = new Date()
   const [region, setRegion] = useState('')
+  const [houseType, setHouseType] = useState<HouseTypeFilter>(HOUSE_TYPE_OPTIONS[0].value)
   const [dateFrom, setDateFrom] = useState(format(subMonths(today, 3), 'yyyy-MM-dd'))
   const [dateTo, setDateTo] = useState(format(today, 'yyyy-MM-dd'))
   const [houseName, setHouseName] = useState('')
@@ -111,16 +72,27 @@ export default function AnnouncementTab() {
     setLoading(true)
     setError('')
     try {
-      const res = await fetchAnnouncements({ page: p, perPage: 15, region, dateFrom, dateTo, houseName })
+      const res = await fetchAnnouncements({
+        page: p,
+        perPage: 15,
+        region,
+        dateFrom,
+        dateTo,
+        houseName,
+        houseType,
+      })
       setData(res)
     } catch {
       setError('데이터를 불러오는 중 오류가 발생했습니다.')
     } finally {
       setLoading(false)
     }
-  }, [region, dateFrom, dateTo, houseName])
+  }, [region, houseType, dateFrom, dateTo, houseName])
 
-  useEffect(() => { load(1); setPage(1) }, [load])
+  useEffect(() => {
+    load(1)
+    setPage(1)
+  }, [load])
 
   const totalPages = data ? Math.ceil(data.totalCount / 15) : 1
 
@@ -128,134 +100,193 @@ export default function AnnouncementTab() {
     router.push(propertyPath(item))
   }
 
+  const houseTypeHint =
+    houseType === '01'
+      ? '민영주택 분양만 표시 중'
+      : houseType === '02'
+        ? '국민주택 분양만 표시 중'
+        : '민영·국민 유형을 선택해 비교할 수 있습니다'
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--gap)' }}>
-      <div className="rise" style={{ ...S.card, padding: 'var(--pad-card)' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'flex-end' }}>
-          <div>
-            <label style={S.label}>공급지역</label>
-            <div style={{ position: 'relative' }}>
-              <select value={region} onChange={e => setRegion(e.target.value)} style={S.select} className="field-focus">
-                {REGIONS.map(r => <option key={r.code} value={r.code}>{r.name}</option>)}
-              </select>
-              <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--ink-3)' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" /></svg>
-              </span>
-            </div>
+    <div className="ann-tab">
+      <div className="ann-filter-card rise">
+        <div className="ann-filter-card__intro">
+          <h2 className="ann-filter-card__title">분양 검색</h2>
+          <p className="ann-filter-card__sub">{houseTypeHint}</p>
+        </div>
+
+        <div className="ann-filter-grid">
+          <FilterSelect
+            label="공급지역"
+            value={region}
+            onChange={setRegion}
+            options={REGIONS.map(r => ({ value: r.code, label: r.name }))}
+          />
+          <SegmentControl
+            label="주택 유형"
+            value={houseType}
+            onChange={setHouseType}
+            options={HOUSE_TYPE_OPTIONS.map(o => ({
+              value: o.value,
+              label: o.label,
+            }))}
+          />
+          <div className="ann-filter-dates">
+            <DateField label="공고일 시작" value={dateFrom} onChange={setDateFrom} max={dateTo} />
+            <span className="ann-filter-dates__sep" aria-hidden />
+            <DateField label="공고일 종료" value={dateTo} onChange={setDateTo} min={dateFrom} />
           </div>
-          <div>
-            <label style={S.label}>공고일 시작</label>
-            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ ...S.input, width: 'auto' }} className="field-focus" />
-          </div>
-          <div>
-            <label style={S.label}>공고일 종료</label>
-            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ ...S.input, width: 'auto' }} className="field-focus" />
-          </div>
-          <div style={{ flex: 1, minWidth: 180 }}>
-            <label style={S.label}>주택명 검색</label>
-            <div style={{ position: 'relative' }}>
-              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-3)', display: 'flex' }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-              </span>
-              <input
-                type="text"
-                value={houseName}
-                onChange={e => setHouseName(e.target.value)}
-                placeholder="주택명 입력"
-                style={{ ...S.input, paddingLeft: 36 }}
-                className="field-focus"
-              />
-            </div>
-          </div>
+          <FilterSearch
+            label="주택명"
+            value={houseName}
+            onChange={setHouseName}
+            placeholder="단지명 검색"
+          />
         </div>
       </div>
 
       {data && (
-        <p style={{ margin: 0, fontSize: 13.5, color: 'var(--ink-3)' }}>
-          총 <span style={{ fontWeight: 700, color: 'var(--ink)' }}>{data.totalCount.toLocaleString()}</span>건
-          <span style={{ marginLeft: 8, fontSize: 12.5 }}>· 행을 클릭하면 상세 페이지로 이동합니다</span>
+        <p className="ann-result-meta">
+          총 <strong className="tnum">{data.totalCount.toLocaleString()}</strong>건
+          <span>행을 선택하면 상세로 이동합니다</span>
         </p>
       )}
 
-      <div style={{ ...S.card, overflow: 'hidden' }}>
+      <div className="ann-table-card">
         {loading ? (
-          <div style={{ padding: 'var(--pad-card)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="ann-table-skeleton">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="shimmer-bar" />
             ))}
           </div>
         ) : error ? (
-          <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--hot)', fontSize: 14 }}>{error}</div>
+          <div className="ann-table-empty ann-table-empty--error">{error}</div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
+          <div className="ann-table-scroll">
+            <table className="ann-table">
+              <colgroup>
+                <col className="ann-col-name" />
+                <col className="ann-col-type" />
+                <col className="ann-col-region" />
+                <col className="ann-col-units" />
+                <col className="ann-col-date" />
+                <col className="ann-col-receipt" />
+                <col className="ann-col-move" />
+                <col className="ann-col-cap" />
+                <col className="ann-col-link" />
+              </colgroup>
               <thead>
                 <tr>
-                  {['주택명', '유형', '공급지역', '총세대수', '모집공고일', '청약접수', '입주예정', '분양가상한', '청약홈'].map((h, i) => (
-                    <th key={h} style={{ ...S.th, textAlign: i === 3 ? 'right' : 'left' }}>{h}</th>
-                  ))}
+                  <th>주택명</th>
+                  <th>유형</th>
+                  <th>지역</th>
+                  <th>세대</th>
+                  <th>공고일</th>
+                  <th>청약접수</th>
+                  <th>입주</th>
+                  <th>상한</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
                 {(data?.data ?? []).length === 0 ? (
                   <tr>
-                    <td colSpan={9} style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--ink-3)', fontSize: 14 }}>
-                      검색 결과가 없습니다
+                    <td colSpan={9} className="ann-table-empty">
+                      조건에 맞는 분양이 없습니다
                     </td>
                   </tr>
                 ) : (
-                  (data?.data ?? []).map((item: Announcement, i) => (
-                    <tr
-                      key={`${item.PBLANC_NO}-${i}`}
-                      className="click-row"
-                      onClick={() => goDetail(item)}
-                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goDetail(item) } }}
-                      tabIndex={0}
-                      role="link"
-                      aria-label={`${item.HOUSE_NM} 상세 보기`}
-                    >
-                      <td style={{ ...S.td, fontWeight: 650, color: 'var(--ink)', maxWidth: 200 }}>
-                        <div className="row-title-cell">
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.HOUSE_NM}</span>
-                          <svg className="row-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                            <path d="M9 18l6-6-6-6" />
-                          </svg>
-                        </div>
-                      </td>
-                      <td style={S.td}>
-                        <InkTag>{item.HOUSE_DTL_SECD_NM || item.HOUSE_SECD_NM}</InkTag>
-                      </td>
-                      <td style={S.td}>{item.SUBSCRPT_AREA_CODE_NM}</td>
-                      <td style={{ ...S.td, textAlign: 'right' }} className="tnum">
-                        {item.TOT_SUPLY_HSHLDCO ? Number(item.TOT_SUPLY_HSHLDCO).toLocaleString() : '-'}
-                      </td>
-                      <td style={S.td} className="tnum">
-                        {item.RCRIT_PBLANC_DE ? formatDate(item.RCRIT_PBLANC_DE.replace(/-/g, '')) : '-'}
-                      </td>
-                      <td style={S.td} className="tnum">
-                        {item.RCEPT_BGNDE && item.RCEPT_ENDDE
-                          ? `${formatDate(item.RCEPT_BGNDE.replace(/-/g, ''))} ~ ${formatDate(item.RCEPT_ENDDE.replace(/-/g, ''))}`
-                          : '-'}
-                      </td>
-                      <td style={S.td} className="tnum">
-                        {item.MVN_PREARNGE_YM ? formatMonth(item.MVN_PREARNGE_YM) : '-'}
-                      </td>
-                      <td style={S.td}>
-                        {item.NSPRC_NM === '해당'
-                          ? <span style={{ fontSize: 12, fontWeight: 650, color: 'var(--ink)' }}>해당</span>
-                          : <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>-</span>}
-                      </td>
-                      <td style={S.td} onClick={e => e.stopPropagation()}>
-                        {item.PBLANC_URL ? (
-                          <InkLink href={item.PBLANC_URL} external onClick={e => e.stopPropagation()}>
-                            바로가기 →
-                          </InkLink>
-                        ) : (
-                          <InkLink href={propertyPath(item)}>상세 보기 →</InkLink>
-                        )}
-                      </td>
-                    </tr>
-                  ))
+                  (data?.data ?? []).map((item: Announcement, i) => {
+                    const receipt = formatReceiptRange(item.RCEPT_BGNDE, item.RCEPT_ENDDE)
+                    const type = houseTypeLabel(item)
+                    const isPrivate = type === '민영'
+                    const isPublic = type === '국민'
+
+                    return (
+                      <tr
+                        key={`${item.PBLANC_NO}-${i}`}
+                        className="click-row ann-row"
+                        onClick={() => goDetail(item)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            goDetail(item)
+                          }
+                        }}
+                        tabIndex={0}
+                        role="link"
+                        aria-label={`${item.HOUSE_NM} 상세 보기`}
+                      >
+                        <td className="ann-cell ann-cell--name">
+                          <div className="ann-name-cell">
+                            <span className="ann-name-cell__text" title={item.HOUSE_NM}>
+                              {item.HOUSE_NM}
+                            </span>
+                            <svg className="row-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                              <path d="M9 18l6-6-6-6" />
+                            </svg>
+                          </div>
+                          {item.BSNS_MBY_NM && (
+                            <span className="ann-name-cell__sub">{item.BSNS_MBY_NM}</span>
+                          )}
+                        </td>
+                        <td className="ann-cell">
+                          <span
+                            className={[
+                              'ann-type-pill',
+                              isPrivate && 'ann-type-pill--private',
+                              isPublic && 'ann-type-pill--public',
+                            ]
+                              .filter(Boolean)
+                              .join(' ')}
+                          >
+                            {type}
+                          </span>
+                        </td>
+                        <td className="ann-cell ann-cell--muted">{item.SUBSCRPT_AREA_CODE_NM}</td>
+                        <td className="ann-cell ann-cell--num tnum">
+                          {item.TOT_SUPLY_HSHLDCO
+                            ? Number(item.TOT_SUPLY_HSHLDCO).toLocaleString()
+                            : '—'}
+                        </td>
+                        <td className="ann-cell ann-cell--num tnum">
+                          {item.RCRIT_PBLANC_DE
+                            ? formatDate(item.RCRIT_PBLANC_DE.replace(/-/g, ''))
+                            : '—'}
+                        </td>
+                        <td className="ann-cell ann-cell--receipt tnum">
+                          {receipt === '—' ? (
+                            '—'
+                          ) : (
+                            <span className="ann-date-range">
+                              <span>{receipt.start}</span>
+                              <span className="ann-date-range__sep">~</span>
+                              <span>{receipt.end}</span>
+                            </span>
+                          )}
+                        </td>
+                        <td className="ann-cell ann-cell--num tnum">
+                          {item.MVN_PREARNGE_YM ? formatMonth(item.MVN_PREARNGE_YM) : '—'}
+                        </td>
+                        <td className="ann-cell ann-cell--cap">
+                          {item.NSPRC_NM === '해당' ? (
+                            <span className="ann-cap-yes">해당</span>
+                          ) : (
+                            <span className="ann-cap-no">—</span>
+                          )}
+                        </td>
+                        <td className="ann-cell ann-cell--link" onClick={e => e.stopPropagation()}>
+                          {item.PBLANC_URL ? (
+                            <InkLink href={item.PBLANC_URL} external onClick={e => e.stopPropagation()}>
+                              청약홈
+                            </InkLink>
+                          ) : (
+                            <InkLink href={propertyPath(item)}>상세</InkLink>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>
@@ -266,7 +297,10 @@ export default function AnnouncementTab() {
       <Pagination
         page={page}
         totalPages={totalPages}
-        onChange={p => { setPage(p); load(p) }}
+        onChange={p => {
+          setPage(p)
+          load(p)
+        }}
       />
     </div>
   )

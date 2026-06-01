@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
   const dateFrom = sp.get('dateFrom') ?? ''
   const dateTo = sp.get('dateTo') ?? ''
   const houseName = sp.get('houseName') ?? ''
+  const houseType = sp.get('houseType') ?? ''
 
   const params = new URLSearchParams({
     serviceKey: KEY,
@@ -22,6 +23,7 @@ export async function GET(req: NextRequest) {
   if (dateFrom) params.set('cond[RCRIT_PBLANC_DE::GTE]', dateFrom)
   if (dateTo) params.set('cond[RCRIT_PBLANC_DE::LTE]', dateTo)
   if (houseName) params.set('cond[HOUSE_NM::LIKE]', houseName)
+  if (houseType) params.set('cond[HOUSE_DTL_SECD::EQ]', houseType)
 
   const url = `${BASE}/ApplyhomeInfoDetailSvc/v1/getAPTLttotPblancDetail?${params}`
   const res = await fetch(url, { next: { revalidate: 300 } })

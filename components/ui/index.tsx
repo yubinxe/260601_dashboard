@@ -160,6 +160,12 @@ const ICON_PATHS: Record<string, ReactNode> = {
       <path d="m18 6-12 12" />
     </>
   ),
+  calendar: (
+    <>
+      <rect x="4" y="5" width="16" height="15" rx="2" />
+      <path d="M8 3v4M16 3v4M4 10h16" />
+    </>
+  ),
 }
 
 export function Icon({ name, size = 18 }: { name: keyof typeof ICON_PATHS; size?: number }) {

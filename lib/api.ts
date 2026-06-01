@@ -27,6 +27,7 @@ export function fetchAnnouncements(params: {
   dateFrom?: string
   dateTo?: string
   houseName?: string
+  houseType?: string
 }) {
   return get<AnnouncementsResponse>('/api/announcements', {
     page: String(params.page ?? 1),
@@ -35,6 +36,7 @@ export function fetchAnnouncements(params: {
     dateFrom: params.dateFrom ?? '',
     dateTo: params.dateTo ?? '',
     houseName: params.houseName ?? '',
+    houseType: params.houseType ?? '',
   })
 }
 
