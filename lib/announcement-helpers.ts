@@ -2,6 +2,9 @@ import type { Announcement } from './types'
 
 export type SubscriptionStatus = 'open' | 'soon' | 'upcoming' | 'closed'
 
+/** 마감 임박 기준: 접수 마감일까지 남은 일수 */
+export const CLOSING_SOON_DAYS = 5
+
 export interface HeroAnnouncement {
   id: string
   name: string
@@ -52,7 +55,7 @@ export function getSubscriptionStatus(ann: Announcement, today = new Date()): Su
   if (t > close) return 'closed'
 
   const remaining = daysBetween(t, close)
-  return remaining <= 3 ? 'soon' : 'open'
+  return remaining <= CLOSING_SOON_DAYS ? 'soon' : 'open'
 }
 
 export function getDday(endRaw: string, today = new Date()): number {
@@ -94,8 +97,21 @@ export function toHeroAnnouncement(ann: Announcement, today = new Date()): HeroA
   }
 }
 
+/** 접수 중이며 마감일이 days 이내인 분양 목록 */
+export function getClosingSoonList(
+  items: Announcement[],
+  days = CLOSING_SOON_DAYS,
+  today = new Date(),
+): HeroAnnouncement[] {
+  return items
+    .map(a => toHeroAnnouncement(a, today))
+    .filter(a => (a.status === 'open' || a.status === 'soon') && a.dday >= 0 && a.dday <= days)
+    .sort((a, b) => a.dday - b.dday)
+}
+
 export function buildDashboardSummary(items: Announcement[], today = new Date()): {
   heroItems: HeroAnnouncement[]
+  closingSoonItems: HeroAnnouncement[]
   kpi: DashboardKpi
 } {
   const mapped = items.map(a => toHeroAnnouncement(a, today))
@@ -103,11 +119,13 @@ export function buildDashboardSummary(items: Announcement[], today = new Date())
   active.sort((a, b) => a.dday - b.dday)
 
   const openCount = mapped.filter(a => a.status === 'open').length
-  const soonCount = mapped.filter(a => a.status === 'soon').length
+  const closingSoonItems = getClosingSoonList(items, CLOSING_SOON_DAYS, today)
+  const soonCount = closingSoonItems.length
   const totalUnits = mapped.reduce((s, a) => s + a.units, 0)
 
   return {
     heroItems: active.slice(0, 3),
+    closingSoonItems,
     kpi: {
       openCount,
       soonCount,

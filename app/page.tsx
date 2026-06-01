@@ -1,15 +1,17 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { format, subMonths } from 'date-fns'
 import { fetchAnnouncements } from '@/lib/api'
 import { buildDashboardSummary } from '@/lib/announcement-helpers'
-import type { HeroAnnouncement, DashboardKpi } from '@/lib/announcement-helpers'
+import type { DashboardKpi } from '@/lib/announcement-helpers'
 import { Icon } from '@/components/ui'
 import SiteHeader from '@/components/layout/SiteHeader'
 import Hero from '@/components/dashboard/Hero'
 import KpiStrip from '@/components/dashboard/KpiStrip'
+import ClosingSoonPanel from '@/components/dashboard/ClosingSoonPanel'
+import type { HeroAnnouncement } from '@/lib/announcement-helpers'
 
 const AnnouncementTab = dynamic(() => import('@/components/announcements/AnnouncementTab'), { ssr: false })
 const CompetitionTab = dynamic(() => import('@/components/competition/CompetitionTab'), { ssr: false })
@@ -38,25 +40,42 @@ export default function Page() {
   const [tab, setTab] = useState<TabId>('ann')
   const [dark, setDark] = useState(false)
   const [heroItems, setHeroItems] = useState<HeroAnnouncement[]>([])
+  const [closingSoonItems, setClosingSoonItems] = useState<HeroAnnouncement[]>([])
+  const [soonPanelOpen, setSoonPanelOpen] = useState(false)
   const [kpi, setKpi] = useState<DashboardKpi>(EMPTY_KPI)
   const [dashLoading, setDashLoading] = useState(true)
+  const soonPanelRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     const today = new Date()
     const dateFrom = format(subMonths(today, 2), 'yyyy-MM-dd')
     const dateTo = format(subMonths(today, -2), 'yyyy-MM-dd')
 
-    fetchAnnouncements({ page: 1, perPage: 80, dateFrom, dateTo })
+    fetchAnnouncements({ page: 1, perPage: 120, dateFrom, dateTo })
       .then(res => {
-        const { heroItems: hero, kpi: summary } = buildDashboardSummary(res.data ?? [])
-        setHeroItems(hero)
-        setKpi(summary)
+        const summary = buildDashboardSummary(res.data ?? [])
+        setHeroItems(summary.heroItems)
+        setClosingSoonItems(summary.closingSoonItems)
+        setKpi(summary.kpi)
       })
       .catch(() => {
         setHeroItems([])
+        setClosingSoonItems([])
         setKpi(EMPTY_KPI)
       })
       .finally(() => setDashLoading(false))
+  }, [])
+
+  const toggleSoonPanel = useCallback(() => {
+    setSoonPanelOpen(prev => {
+      const next = !prev
+      if (next) {
+        requestAnimationFrame(() => {
+          soonPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        })
+      }
+      return next
+    })
   }, [])
 
   const toggleDark = () => {
@@ -82,7 +101,18 @@ export default function Page() {
         ) : (
           <>
             <Hero items={heroItems} />
-            <KpiStrip kpi={kpi} />
+            <KpiStrip
+              kpi={kpi}
+              soonPanelOpen={soonPanelOpen}
+              onSoonClick={toggleSoonPanel}
+            />
+            {soonPanelOpen && (
+              <ClosingSoonPanel
+                ref={soonPanelRef}
+                items={closingSoonItems}
+                onClose={() => setSoonPanelOpen(false)}
+              />
+            )}
           </>
         )}
 
