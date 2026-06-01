@@ -1,65 +1,75 @@
-import Image from "next/image";
+'use client'
 
-export default function Home() {
+import { useState } from 'react'
+import dynamic from 'next/dynamic'
+
+const AnnouncementTab = dynamic(() => import('@/components/announcements/AnnouncementTab'), { ssr: false })
+const CompetitionTab  = dynamic(() => import('@/components/competition/CompetitionTab'),   { ssr: false })
+const WinnersTab      = dynamic(() => import('@/components/winners/WinnersTab'),            { ssr: false })
+
+const TABS = [
+  { id: 'announcements', label: '📋 분양정보', sub: '모집공고 목록' },
+  { id: 'competition',   label: '🔥 경쟁률 현황', sub: '실시간 접수 경쟁률' },
+  { id: 'winners',       label: '📊 당첨자 통계', sub: '신청·당첨 분석' },
+] as const
+
+type TabId = (typeof TABS)[number]['id']
+
+export default function Page() {
+  const [activeTab, setActiveTab] = useState<TabId>('announcements')
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen">
+      {/* Header */}
+      <header className="bg-gradient-to-r from-blue-700 to-blue-500 text-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold tracking-tight">🏠 청약 현황 대시보드</h1>
+              <p className="text-blue-100 text-sm mt-0.5">청약홈 공공데이터 기반 실시간 분석</p>
+            </div>
+            <span className="text-xs text-blue-200 hidden sm:block">출처: 한국부동산원 청약홈</span>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </header>
+
+      {/* Tab Nav */}
+      <div className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <nav className="flex gap-1 overflow-x-auto">
+            {TABS.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-shrink-0 flex flex-col items-start px-5 py-3.5 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === tab.id
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+                }`}
+              >
+                <span>{tab.label}</span>
+                <span className={`text-xs font-normal mt-0.5 ${activeTab === tab.id ? 'text-blue-400' : 'text-slate-400'}`}>
+                  {tab.sub}
+                </span>
+              </button>
+            ))}
+          </nav>
         </div>
+      </div>
+
+      {/* Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+        {activeTab === 'announcements' && <AnnouncementTab />}
+        {activeTab === 'competition'   && <CompetitionTab />}
+        {activeTab === 'winners'       && <WinnersTab />}
       </main>
+
+      {/* Footer */}
+      <footer className="border-t border-slate-200 mt-12 py-6">
+        <p className="text-center text-xs text-slate-400">
+          데이터 출처: 공공데이터포털 청약홈 OpenAPI · 한국부동산원
+        </p>
+      </footer>
     </div>
-  );
+  )
 }
