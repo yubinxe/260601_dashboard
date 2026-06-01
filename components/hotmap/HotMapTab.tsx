@@ -57,7 +57,7 @@ export default function HotMapTab() {
         <span className="predict-badge">Hot Map</span>
         <h2 className="predict-title">청약 핫플레이스</h2>
         <p className="predict-desc">
-          분양 위치와 지역별 경쟁률을 한눈에. 붉은 글로우·펄스 마커는 고경쟁 구간이며, 마커를 누르면 단지 요약이 열립니다.
+          분양 위치와 지역별 경쟁률을 한눈에. 지역을 클릭하거나 휠로 확대하면 해당 시·도를 자세히 볼 수 있으며, 마커를 누르면 단지 요약이 열립니다.
         </p>
       </div>
 
@@ -112,7 +112,7 @@ export default function HotMapTab() {
               onSelectSpot={setSelectedSpot}
             />
             <p className="predict-disclaimer" style={{ marginTop: 16, textAlign: 'left' }}>
-              * 마커 위치는 공급지역 기준으로 표시됩니다. 경쟁률은 지역 통계·단지별 API를 조합한 값입니다.
+              * 마커는 시·도 경계 안 고정 배치입니다. 휠 확대·드래그 이동·우측 전국 버튼으로 지도를 조작할 수 있습니다.
               {selectedRegion && (
                 <>
                   {' '}
