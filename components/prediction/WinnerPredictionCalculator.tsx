@@ -3,10 +3,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Card } from '@/components/ui'
 import RadialGauge from '@/components/prediction/RadialGauge'
+import { usePredictAutoAdvance } from '@/components/prediction/usePredictAutoAdvance'
 import {
   buildPrediction,
   calculateSubscriptionScore,
+  clampAccountYears,
+  clampDependents,
+  clampHomelessYears,
   DEFAULT_REFERENCE,
+  SCORE_LIMITS,
   type ReferenceStats,
   type ScoreInput,
   type PredictionResult,
@@ -52,6 +57,7 @@ export default function WinnerPredictionCalculator({
   const [refLoading, setRefLoading] = useState(true)
   const [result, setResult] = useState<PredictionResult | null>(null)
   const [calculating, setCalculating] = useState(false)
+  const [quickHint, setQuickHint] = useState('')
 
   const loadReference = useCallback(async (code: string) => {
     setRefLoading(true)
@@ -87,20 +93,116 @@ export default function WinnerPredictionCalculator({
   const isLastStep = step === STEPS.length - 1
   const showResult = result !== null
 
-  const handleNext = () => {
-    if (isLastStep) {
-      setCalculating(true)
-      requestAnimationFrame(() => {
-        const pred = buildPrediction(input, reference, complexName)
-        setResult(pred)
-        setCalculating(false)
-      })
+  const runAnalysis = useCallback(() => {
+    setCalculating(true)
+    requestAnimationFrame(() => {
+      const pred = buildPrediction(input, reference, complexName)
+      setResult(pred)
+      setCalculating(false)
+    })
+  }, [complexName, input, reference])
+
+  const advanceFromStep = useCallback(() => {
+    setQuickHint('')
+    if (step >= STEPS.length - 1) {
+      runAnalysis()
     } else {
       setStep(s => s + 1)
     }
-  }
+  }, [runAnalysis, step])
+
+  const autoAdvance = usePredictAutoAdvance(advanceFromStep)
+
+  const handleNext = useCallback(() => {
+    autoAdvance.cancel()
+    setQuickHint('')
+    if (isLastStep) {
+      runAnalysis()
+    } else {
+      setStep(s => s + 1)
+    }
+  }, [autoAdvance, isLastStep, runAnalysis])
+
+  const bumpHomeless = useCallback(
+    (add: number) => {
+      setInput(p => {
+        const next = clampHomelessYears(p.homelessYears + add)
+        setQuickHint(
+          add > 0
+            ? `+${add}년 반영 · 총 ${next}년 (연속 탭 시 누적, 잠시 후 다음 단계)`
+            : `총 ${next}년`,
+        )
+        return { ...p, homelessYears: next }
+      })
+      autoAdvance.schedule()
+    },
+    [autoAdvance],
+  )
+
+  const setHomelessTotalAndNext = useCallback(
+    (total: number) => {
+      autoAdvance.cancel()
+      const next = clampHomelessYears(total)
+      setInput(p => ({ ...p, homelessYears: next }))
+      setQuickHint(`${next}년으로 설정 · 다음 단계`)
+      setStep(1)
+    },
+    [autoAdvance],
+  )
+
+  const bumpDependents = useCallback(
+    (add: number) => {
+      setInput(p => {
+        const next = clampDependents(p.dependents + add)
+        setQuickHint(`부양가족 ${next}명 · 잠시 후 다음 단계`)
+        return { ...p, dependents: next }
+      })
+      autoAdvance.schedule()
+    },
+    [autoAdvance],
+  )
+
+  const setDependentsAndNext = useCallback(
+    (total: number) => {
+      autoAdvance.cancel()
+      const next = clampDependents(total)
+      setInput(p => ({ ...p, dependents: next }))
+      setStep(2)
+    },
+    [autoAdvance],
+  )
+
+  const bumpAccount = useCallback(
+    (add: number) => {
+      setInput(p => {
+        const next = clampAccountYears(p.accountYears + add)
+        setQuickHint(`+${add}년 반영 · 총 ${next}년 · 잠시 후 분석`)
+        return { ...p, accountYears: next }
+      })
+      autoAdvance.schedule()
+    },
+    [autoAdvance],
+  )
+
+  const setAccountTotalAndNext = useCallback(
+    (total: number) => {
+      autoAdvance.cancel()
+      const next = clampAccountYears(total)
+      setInput(p => {
+        const merged = { ...p, accountYears: next }
+        requestAnimationFrame(() => {
+          setResult(buildPrediction(merged, reference, complexName))
+        })
+        return merged
+      })
+      setQuickHint(`${next}년으로 설정 · 분석 시작`)
+    },
+    [autoAdvance, complexName, reference],
+  )
 
   const handleBack = () => {
+    autoAdvance.cancel()
+    setQuickHint('')
     if (showResult) {
       setResult(null)
       setStep(STEPS.length - 1)
@@ -108,6 +210,8 @@ export default function WinnerPredictionCalculator({
   }
 
   const reset = () => {
+    autoAdvance.cancel()
+    setQuickHint('')
     setResult(null)
     setStep(0)
     setInput({ homelessYears: 5, dependents: 2, accountYears: 7 })
@@ -158,22 +262,70 @@ export default function WinnerPredictionCalculator({
             {step === 0 && (
               <div className="predict-control">
                 <div className="predict-value-row">
-                  <span className="predict-value tnum">{input.homelessYears}</span>
+                  <span className="predict-value tnum" key={input.homelessYears}>
+                    {input.homelessYears}
+                  </span>
                   <span className="predict-unit">년</span>
                   <span className="predict-points tnum">+{breakdown.homeless}점</span>
                 </div>
+
+                <div className="predict-quick-section">
+                  <p className="predict-quick-label">빠른 입력 · 탭할 때마다 더해집니다</p>
+                  <div className="predict-quick-chips">
+                    {[1, 2, 3, 5].map(y => (
+                      <button
+                        key={`add-${y}`}
+                        type="button"
+                        className="predict-quick-chip predict-quick-chip--add"
+                        onClick={() => bumpHomeless(y)}
+                      >
+                        +{y}년
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      className="predict-quick-chip predict-quick-chip--ghost"
+                      onClick={() => {
+                        autoAdvance.cancel()
+                        setInput(p => ({ ...p, homelessYears: 0 }))
+                        setQuickHint('초기화했습니다')
+                      }}
+                    >
+                      초기화
+                    </button>
+                  </div>
+                  <div className="predict-quick-chips predict-quick-chips--next">
+                    {[2, 3, 5, 10].map(y => (
+                      <button
+                        key={`set-${y}`}
+                        type="button"
+                        className="predict-quick-chip predict-quick-chip--go"
+                        onClick={() => setHomelessTotalAndNext(y)}
+                      >
+                        {y}년 · 다음
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <input
                   type="range"
                   min={0}
-                  max={16}
+                  max={SCORE_LIMITS.homelessYearsMax}
                   step={1}
                   value={input.homelessYears}
-                  onChange={e => setInput(p => ({ ...p, homelessYears: Number(e.target.value) }))}
+                  onChange={e => {
+                    autoAdvance.cancel()
+                    setInput(p => ({
+                      ...p,
+                      homelessYears: Number(e.target.value),
+                    }))
+                  }}
                   className="predict-range"
                 />
                 <div className="predict-range-labels">
                   <span>0년</span>
-                  <span>16년+</span>
+                  <span>{SCORE_LIMITS.homelessYearsMax}년+</span>
                 </div>
               </div>
             )}
@@ -186,14 +338,18 @@ export default function WinnerPredictionCalculator({
                     className="predict-step-btn"
                     aria-label="감소"
                     disabled={input.dependents <= 0}
-                    onClick={() => setInput(p => ({ ...p, dependents: Math.max(0, p.dependents - 1) }))}
+                    onClick={() => {
+                      autoAdvance.cancel()
+                      setInput(p => ({
+                        ...p,
+                        dependents: clampDependents(p.dependents - 1),
+                      }))
+                    }}
                   >
                     −
                   </button>
                   <div className="predict-stepper-value">
-                    <span className="tnum" style={{ fontSize: 42, fontWeight: 760, letterSpacing: '-0.04em' }}>
-                      {input.dependents}
-                    </span>
+                    <span className="tnum predict-big-num">{input.dependents}</span>
                     <span style={{ fontSize: 14, color: 'var(--ink-3)', fontWeight: 500 }}>명</span>
                     <span className="predict-points tnum" style={{ marginTop: 8 }}>+{breakdown.dependents}점</span>
                   </div>
@@ -201,11 +357,38 @@ export default function WinnerPredictionCalculator({
                     type="button"
                     className="predict-step-btn"
                     aria-label="증가"
-                    disabled={input.dependents >= 6}
-                    onClick={() => setInput(p => ({ ...p, dependents: Math.min(6, p.dependents + 1) }))}
+                    disabled={input.dependents >= SCORE_LIMITS.dependentsMax}
+                    onClick={() => bumpDependents(1)}
                   >
                     +
                   </button>
+                </div>
+                <div className="predict-quick-section">
+                  <p className="predict-quick-label">빠른 입력</p>
+                  <div className="predict-quick-chips">
+                    {[1, 2, 3].map(n => (
+                      <button
+                        key={`dep-add-${n}`}
+                        type="button"
+                        className="predict-quick-chip predict-quick-chip--add"
+                        onClick={() => bumpDependents(n)}
+                      >
+                        +{n}명
+                      </button>
+                    ))}
+                  </div>
+                  <div className="predict-quick-chips predict-quick-chips--next">
+                    {[0, 1, 2, 3].map(n => (
+                      <button
+                        key={`dep-set-${n}`}
+                        type="button"
+                        className="predict-quick-chip predict-quick-chip--go"
+                        onClick={() => setDependentsAndNext(n)}
+                      >
+                        {n}명 · 다음
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -213,24 +396,65 @@ export default function WinnerPredictionCalculator({
             {step === 2 && (
               <div className="predict-control">
                 <div className="predict-value-row">
-                  <span className="predict-value tnum">{input.accountYears}</span>
+                  <span className="predict-value tnum" key={input.accountYears}>
+                    {input.accountYears}
+                  </span>
                   <span className="predict-unit">년</span>
                   <span className="predict-points tnum">+{breakdown.account}점</span>
+                </div>
+                <div className="predict-quick-section">
+                  <p className="predict-quick-label">빠른 입력 · 탭할 때마다 더해집니다</p>
+                  <div className="predict-quick-chips">
+                    {[1, 2, 3, 5].map(y => (
+                      <button
+                        key={`acc-add-${y}`}
+                        type="button"
+                        className="predict-quick-chip predict-quick-chip--add"
+                        onClick={() => bumpAccount(y)}
+                      >
+                        +{y}년
+                      </button>
+                    ))}
+                  </div>
+                  <div className="predict-quick-chips predict-quick-chips--next">
+                    {[2, 3, 5, 7, 10].map(y => (
+                      <button
+                        key={`acc-set-${y}`}
+                        type="button"
+                        className="predict-quick-chip predict-quick-chip--go"
+                        onClick={() => setAccountTotalAndNext(y)}
+                      >
+                        {y}년 · 분석
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <input
                   type="range"
                   min={0}
-                  max={17}
+                  max={SCORE_LIMITS.accountYearsMax}
                   step={1}
                   value={input.accountYears}
-                  onChange={e => setInput(p => ({ ...p, accountYears: Number(e.target.value) }))}
+                  onChange={e => {
+                    autoAdvance.cancel()
+                    setInput(p => ({
+                      ...p,
+                      accountYears: Number(e.target.value),
+                    }))
+                  }}
                   className="predict-range"
                 />
                 <div className="predict-range-labels">
                   <span>0년</span>
-                  <span>17년+</span>
+                  <span>{SCORE_LIMITS.accountYearsMax}년+</span>
                 </div>
               </div>
+            )}
+
+            {quickHint && (
+              <p className="predict-quick-hint" role="status" aria-live="polite">
+                {quickHint}
+              </p>
             )}
 
             <div className="predict-score-preview">

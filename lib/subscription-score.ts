@@ -38,6 +38,24 @@ export interface PredictionResult {
   reference: ReferenceStats
 }
 
+export const SCORE_LIMITS = {
+  homelessYearsMax: 16,
+  dependentsMax: 6,
+  accountYearsMax: 17,
+} as const
+
+export function clampHomelessYears(years: number) {
+  return Math.min(SCORE_LIMITS.homelessYearsMax, Math.max(0, Math.floor(years)))
+}
+
+export function clampDependents(n: number) {
+  return Math.min(SCORE_LIMITS.dependentsMax, Math.max(0, Math.floor(n)))
+}
+
+export function clampAccountYears(years: number) {
+  return Math.min(SCORE_LIMITS.accountYearsMax, Math.max(0, Math.floor(years)))
+}
+
 export function calculateSubscriptionScore(input: ScoreInput): ScoreBreakdown {
   const homeless = Math.min(Math.max(0, Math.floor(input.homelessYears)) * 2, 32)
   const dependents = Math.min(Math.max(0, Math.floor(input.dependents)) * 5, 35)
